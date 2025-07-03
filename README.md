@@ -1,79 +1,134 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Paroliamo – Italian Word Game
 
-# Getting Started
+A classic-style **word game** inspired by the Italian TV show _Paroliamo_, built in **React Native**. Generate a grid of letters, form as many words as possible before time runs out, and challenge your vocabulary!
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+## Features
 
-## Step 1: Start the Metro Server
+- Configurable letter matrix (default 5×5)
+- Italian alphabet with weighted probabilities
+- Customizable countdown duration
+- Visual and audio 3-2-1 start countdown
+- Red flashing timer below 10 seconds
+- End-of-game sound alert
+- Pause, resume, and shuffle functionality
+- Native launcher icon and sounds
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+## Getting Started
 
-To start Metro, run the following command from the _root_ of your React Native project:
+> **Note**: Make sure you’ve completed the [React Native Environment Setup](https://reactnative.dev/docs/environment-setup) before proceeding.
+
+### 1. Install Dependencies
 
 ```bash
-# using npm
+npm install
+```
+
+### 2. Link Assets
+
+We use custom sounds (e.g., `beep.mp3`) stored in the `assets/sounds` folder. These need to be linked to native builds:
+
+```bash
+npx react-native-asset
+```
+
+### 3. Start Metro Server
+
+```bash
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Start your Application
+### 4. Run the App
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
-
-### For Android
-
+#### Android
 ```bash
-# using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### For iOS
+#### iOS
+```bash
+npm run ios
+```
+
+> ⚠️ For **standalone APK builds**, see the section below.
+
+---
+
+## Building a Standalone APK (Android)
+
+To generate a debug APK you can install on a physical device:
 
 ```bash
-# using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+cd android
+./gradlew assembleDebug
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+The APK will be generated at:
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+```
+android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-## Step 3: Modifying your App
+Transfer it to your Android device and install it manually.
 
-Now that you have successfully run the app, let's modify it.
+> ⚠️ If you see an error like:
+> _"Unable to load script. Make sure you’re either running Metro or that your bundle 'index.android.bundle' is packaged for release"_
+>
+> Then you must create a release bundle:
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+```bash
+npx react-native bundle \
+  --platform android \
+  --dev false \
+  --entry-file index.js \
+  --bundle-output android/app/src/main/assets/index.android.bundle \
+  --assets-dest android/app/src/main/res
+```
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+If `android/app/src/main/assets` doesn’t exist, create it manually.
 
-## Congratulations! :tada:
+Then rebuild:
 
-You've successfully run and modified your React Native App. :partying_face:
+```bash
+cd android
+./gradlew assembleRelease
+```
 
-### Now what?
+Install the generated `app-release.apk`.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+---
 
-# Troubleshooting
+## Post-Install Summary
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+If you reset or clone the project again, run:
 
-# Learn More
+```bash
+npm install
+npx react-native-asset
+```
 
-To learn more about React Native, take a look at the following resources:
+This ensures your custom assets (like `beep.mp3`) are correctly linked.
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+---
+
+## Project Structure
+
+```
+Paroliamo/
+├── assets/
+│   └── sounds/
+│       └── beep.mp3
+├── components/
+│   ├── Matrix.tsx
+│   └── SettingsPanel.tsx
+├── utils/
+│   ├── matrixGenerator.ts
+│   └── letterGenerator.ts
+├── App.tsx
+└── Paroliamo.tsx
+```
+
+---
+
+## License
+
+MIT

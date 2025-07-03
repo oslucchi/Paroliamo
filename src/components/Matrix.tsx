@@ -24,25 +24,27 @@ const Matrix: React.FC<MatrixProps> = ({
   if (!visible) return null;
 
   return (
-    <View style={styles.container}>
-      {matrix.map((row, rowIndex) => (
-        <View style={styles.row} key={`row-${rowIndex}`}>
-          {row.map((letter, colIndex) => (
-            <View
-              style={[styles.cell, {width: cellSize, height: cellSize}]}
-              key={`cell-${rowIndex}-${colIndex}`}>
-              <Text
-                style={{
-                  fontSize: cellSize * 0.6,
-                  fontWeight: 'bold',
-                  color: '#c22200',
-                }}>
-                {visible ? letter : ' '}
-              </Text>
+    <View style={styles.wrapper}>
+        <View style={styles.container}>
+        {matrix.map((row, rowIndex) => (
+            <View style={styles.row} key={`row-${rowIndex}`}>
+            {row.map((letter, colIndex) => (
+                <View
+                style={[styles.cell, {width: cellSize, height: cellSize}]}
+                key={`cell-${rowIndex}-${colIndex}`}>
+                <Text
+                    style={{
+                    fontSize: cellSize * 0.6,
+                    fontWeight: 'bold',
+                    color: '#c22200',
+                    }}>
+                    {visible ? letter : ' '}
+                </Text>
+                </View>
+            ))}
             </View>
-          ))}
+        ))}
         </View>
-      ))}
     </View>
   );
 };
@@ -50,6 +52,11 @@ const Matrix: React.FC<MatrixProps> = ({
 export default Matrix;
 
 const styles = StyleSheet.create({
+  wrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
   row: {
     flexDirection: 'row',
   },
