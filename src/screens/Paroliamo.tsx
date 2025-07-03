@@ -9,7 +9,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Animated,
 } from 'react-native';
 import {Appbar} from 'react-native-paper';
 import Matrix from '../components/Matrix';
@@ -17,42 +16,37 @@ import SettingsPanel from '../components/SettingsPanel';
 import {generateMatrix} from '../utils/matrixGenerator';
 import Sound from 'react-native-sound';
 
-type ConfigField = 'rows' | 'cols' | 'duration';
+type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval';
 
 const Paroliamo = () => {
   const [rows, setRows] = useState(5);
   const [cols, setCols] = useState(5);
-  const [duration, setDuration] = useState(3 * 60 * 1000); // in ms
+  const [duration, setDuration] = useState(3 * 60 * 1000);
 
   const [matrix, setMatrix] = useState<string[][]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);
   const [showSettings, setShowSettings] = useState(false);
-  const [preCountdown, setPreCountdown] = useState<number | null>(null);
+  const [isRotating, setIsRotating] = useState(true);
+  const [rotationAngle, setRotationAngle] = useState(0);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const flashAnim = useRef(new Animated.Value(1)).current;
+  const [preCountdown, setPreCountdown] = useState<number | null>(null);
+  const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const [rotationInterval, setRotationInterval] = useState(5000); // ms, 0 = no rotation
 
   Sound.setCategory('Playback');
 
-  const buzzerSound = useRef<Sound | null>(null);
-  const beepSound = useRef<Sound | null>(null);
-
-  useEffect(() => {
-    beepSound.current = new Sound(require('../../assets/sounds/beep.mp3'), Sound.MAIN_BUNDLE, () => {});
-    buzzerSound.current = new Sound(require('../../assets/sounds/buzzer.mp3'), Sound.MAIN_BUNDLE, () => {});
-    return () => {
-      beepSound.current?.release();
-      buzzerSound.current?.release();
-    };
-  }, []);
-
+  // Initial empty matrix
   useEffect(() => {
     const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
     setMatrix(emptyMatrix);
   }, [rows, cols]);
 
+  // Game countdown
   useEffect(() => {
     if (isRunning && timeLeft > 0 && !isPaused) {
       intervalRef.current = setInterval(() => {
@@ -70,29 +64,31 @@ const Paroliamo = () => {
     return () => clearInterval(intervalRef.current!);
   }, [isRunning, isPaused]);
 
+  // Cell rotation interval
   useEffect(() => {
-    if (isRunning && timeLeft <= 10000 && timeLeft > 0) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(flashAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(flashAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      flashAnim.setValue(1); // reset
+    if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
+      rotationIntervalRef.current = setInterval(() => {
+        setRotationAngle(prev => (prev + 90) % 360);
+      }, rotationInterval);
     }
-  }, [timeLeft, isRunning]);
 
-  const playBeep = () => beepSound.current?.play();
-  const playBuzzer = () => buzzerSound.current?.play();
+    return () => clearInterval(rotationIntervalRef.current!);
+  }, [isRunning, isPaused, isRotating, rotationInterval]);
+
+  const playBeep = () => {
+    const beep = new Sound(require('../../assets/sounds/beep.mp3'), error => {
+      if (!error) beep.play(() => beep.release());
+    });
+  };
+
+  const playBuzzer = () => {
+    const buzzer = new Sound(
+      require('../../assets/sounds/buzzer.mp3'),
+      error => {
+        if (!error) buzzer.play(() => buzzer.release());
+      },
+    );
+  };
 
   const handleStart = () => {
     let count = 3;
@@ -118,9 +114,7 @@ const Paroliamo = () => {
     clearInterval(intervalRef.current!);
   };
 
-  const handleResume = () => {
-    setIsPaused(false);
-  };
+  const handleResume = () => setIsPaused(false);
 
   const handleShuffle = () => {
     const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
@@ -152,22 +146,26 @@ const Paroliamo = () => {
             <Text style={styles.preCountdown}>{preCountdown}</Text>
           )}
 
-          <Animated.Text
-            style={[
-              styles.timer,
-              timeLeft <= 10000 && styles.timerWarning,
-              {opacity: timeLeft <= 10000 && isRunning ? flashAnim : 1},
-            ]}>
+          <Text
+            style={[styles.timer, timeLeft <= 10000 && styles.timerWarning]}>
             Time Left: {formatTime(timeLeft)}
-          </Animated.Text>
+          </Text>
 
-          <Matrix rows={rows} cols={cols} visible={true} matrix={matrix} />
+          <Matrix
+            rows={rows}
+            cols={cols}
+            visible={true}
+            matrix={matrix}
+            rotationAngle={rotationAngle}
+          />
 
           <View style={styles.buttonContainer}>
-            {!isRunning && !isPaused && timeLeft === duration && (
+            {!isRunning && timeLeft === duration && (
               <Button title="Start" onPress={handleStart} />
             )}
-            {isRunning && !isPaused && <Button title="Stop" onPress={handleStop} />}
+            {isRunning && !isPaused && (
+              <Button title="Stop" onPress={handleStop} />
+            )}
             {isPaused && (
               <>
                 <Button title="Resume" onPress={handleResume} />
@@ -176,7 +174,17 @@ const Paroliamo = () => {
                 </View>
               </>
             )}
-            {!isRunning && timeLeft === 0 && <Button title="Shuffle" onPress={handleShuffle} />}
+            {!isRunning && timeLeft === 0 && (
+              <Button title="Shuffle" onPress={handleShuffle} />
+            )}
+
+            {/* Rotation toggle */}
+            <View style={{marginTop: 20}}>
+              <Button
+                title={isRotating ? 'Disable Rotation' : 'Enable Rotation'}
+                onPress={() => setIsRotating(prev => !prev)}
+              />
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -188,17 +196,22 @@ const Paroliamo = () => {
             rows={rows}
             cols={cols}
             duration={Math.floor(duration / 60000)}
+            rotationInterval={rotationInterval}
             onChange={(field: ConfigField, value: number) => {
               if (field === 'rows') setRows(value);
               else if (field === 'cols') setCols(value);
-              else if (field === 'duration') {
-                setDuration(value * 60000);
-                setTimeLeft(value * 60000);
-              }
+              else if (field === 'duration') setDuration(value * 60000);
+              else if (field === 'rotationInterval') setRotationInterval(value);
             }}
           />
           <View style={{marginTop: 20}}>
-            <Button title="Close" onPress={() => setShowSettings(false)} />
+            <Button
+              title="Close"
+              onPress={() => {
+                setTimeLeft(duration);
+                setShowSettings(false);
+              }}
+            />
           </View>
         </SafeAreaView>
       </Modal>

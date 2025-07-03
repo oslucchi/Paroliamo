@@ -1,14 +1,12 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
-import {italianAlphabetProbabilities} from '../data/italianAlphabet';
-import {generateLetter} from '../utils/letterGenerator';
-import {Dimensions} from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 interface MatrixProps {
   rows?: number;
   cols?: number;
   visible: boolean;
   matrix: string[][];
+  rotationAngle?: number;
 }
 
 const Matrix: React.FC<MatrixProps> = ({
@@ -16,35 +14,45 @@ const Matrix: React.FC<MatrixProps> = ({
   cols = 5,
   visible,
   matrix,
+  rotationAngle = 0,
 }) => {
   const screenWidth = Dimensions.get('window').width;
-  const totalSpacing = 8 * cols; // margin between cells
-  const cellSize = (screenWidth - totalSpacing - 32) / cols; // 32 for horizontal padding
+  const totalSpacing = 8 * cols;
+  const cellSize = (screenWidth - totalSpacing - 32) / cols;
 
   if (!visible) return null;
 
   return (
-    <View style={styles.wrapper}>
-        <View style={styles.container}>
-        {matrix.map((row, rowIndex) => (
-            <View style={styles.row} key={`row-${rowIndex}`}>
-            {row.map((letter, colIndex) => (
-                <View
-                style={[styles.cell, {width: cellSize, height: cellSize}]}
-                key={`cell-${rowIndex}-${colIndex}`}>
-                <Text
-                    style={{
+    <View style={styles.container}>
+      {matrix.map((row, rowIndex) => (
+        <View style={styles.row} key={`row-${rowIndex}`}>
+          {row.map((letter, colIndex) => {
+            const animatedValue = new Animated.Value(rotationAngle);
+            const rotate = animatedValue.interpolate({
+              inputRange: [0, 360],
+              outputRange: ['0deg', '360deg'],
+            });
+
+            return (
+              <View
+                key={`cell-${rowIndex}-${colIndex}`}
+                style={[styles.cell, { width: cellSize, height: cellSize }]}
+              >
+                <Animated.Text
+                  style={{
                     fontSize: cellSize * 0.6,
                     fontWeight: 'bold',
                     color: '#c22200',
-                    }}>
-                    {visible ? letter : ' '}
-                </Text>
-                </View>
-            ))}
-            </View>
-        ))}
+                    transform: [{ rotate: `${rotationAngle}deg` }],
+                  }}
+                >
+                  {letter}
+                </Animated.Text>
+              </View>
+            );
+          })}
         </View>
+      ))}
     </View>
   );
 };
@@ -52,10 +60,10 @@ const Matrix: React.FC<MatrixProps> = ({
 export default Matrix;
 
 const styles = StyleSheet.create({
-  wrapper: {
-    justifyContent: 'center',
+  container: {
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+    marginTop: 20,
   },
   row: {
     flexDirection: 'row',
@@ -69,10 +77,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5dc', // light beige
     borderWidth: 1,
     borderColor: '#d2b48c', // light brown
-  },
-  container: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    alignItems: 'center',
   },
 });

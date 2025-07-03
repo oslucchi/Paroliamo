@@ -5,13 +5,15 @@ interface SettingsPanelProps {
   rows: number;
   cols: number;
   duration: number; // in minutes
-  onChange: (field: 'rows' | 'cols' | 'duration', value: number) => void;
+  rotationInterval: number; // in ms
+  onChange: (field: 'rows' | 'cols' | 'duration' | 'rotationInterval', value: number) => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   rows,
   cols,
   duration,
+  rotationInterval,
   onChange,
 }) => {
   return (
@@ -39,6 +41,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         value={duration.toString()}
         onChangeText={(text) => onChange('duration', parseInt(text) || 1)}
       />
+
+      <Text style={styles.label}>Rotation Interval (ms, 0 = no rotation):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={rotationInterval.toString()}
+        onChangeText={(text) => onChange('rotationInterval', parseInt(text) || 0)}
+      />
+
     </View>
   );
 };
