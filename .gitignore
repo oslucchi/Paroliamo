@@ -64,3 +64,63 @@ yarn-error.log
 
 # testing
 /coverage
+
+
+
+#############################
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Metro
+.expo/
+.expo-shared/
+.babelrc
+.env
+.env.*
+
+# TypeScript cache
+*.tsbuildinfo
+
+# VSCode settings
+.vscode/
+
+# macOS system files
+.DS_Store
+
+# Android/Gradle
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+
+# iOS/Xcode
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/.xcworkspace/
+ios/*.xcodeproj/project.xcworkspace/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+
+# Testing
+coverage/
+*.test.ts.snap
+
+# React Native specific
+*.keystore
+*.jks
+*.hprof
+
+# NPM logs
+*.log
