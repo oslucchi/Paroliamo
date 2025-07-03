@@ -1,0 +1,64 @@
+import React from 'react';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
+
+interface SettingsPanelProps {
+  rows: number;
+  cols: number;
+  duration: number; // in minutes
+  onChange: (field: 'rows' | 'cols' | 'duration', value: number) => void;
+}
+
+const SettingsPanel: React.FC<SettingsPanelProps> = ({
+  rows,
+  cols,
+  duration,
+  onChange,
+}) => {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>Matrix Rows:</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={rows.toString()}
+        onChangeText={(text) => onChange('rows', parseInt(text) || 1)}
+      />
+
+      <Text style={styles.label}>Matrix Columns:</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={cols.toString()}
+        onChangeText={(text) => onChange('cols', parseInt(text) || 1)}
+      />
+
+      <Text style={styles.label}>Game Duration (min):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={duration.toString()}
+        onChangeText={(text) => onChange('duration', parseInt(text) || 1)}
+      />
+    </View>
+  );
+};
+
+export default SettingsPanel;
+
+const styles = StyleSheet.create({
+  container: {
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  label: {
+    fontWeight: 'bold',
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#999',
+    borderRadius: 5,
+    padding: 6,
+    marginTop: 4,
+  },
+});
