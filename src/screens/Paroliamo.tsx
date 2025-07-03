@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useState, useEffect, useRef} from 'react';
 import {
   SafeAreaView,
@@ -36,9 +37,29 @@ const Paroliamo = () => {
   const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
-  const [rotationInterval, setRotationInterval] = useState(5000); // ms, 0 = no rotation
+  const [rotationInterval, setRotationInterval] = useState(5); // sec, 0 = no rotation
 
   Sound.setCategory('Playback');
+  // load config parms eventually saved
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const savedRows = await AsyncStorage.getItem('rows');
+        const savedCols = await AsyncStorage.getItem('cols');
+        const savedDuration = await AsyncStorage.getItem('duration');
+        const savedRotation = await AsyncStorage.getItem('rotationInterval');
+
+        if (savedRows) setRows(Number(savedRows));
+        if (savedCols) setCols(Number(savedCols));
+        if (savedDuration) setDuration(Number(savedDuration));
+        if (savedRotation) setRotationInterval(Number(savedRotation));
+      } catch (err) {
+        console.warn('Failed to load saved settings:', err);
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   // Initial empty matrix
   useEffect(() => {
@@ -69,7 +90,7 @@ const Paroliamo = () => {
     if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
       rotationIntervalRef.current = setInterval(() => {
         setRotationAngle(prev => (prev + 90) % 360);
-      }, rotationInterval);
+      }, rotationInterval * 1000);
     }
 
     return () => clearInterval(rotationIntervalRef.current!);
@@ -197,11 +218,15 @@ const Paroliamo = () => {
             cols={cols}
             duration={Math.floor(duration / 60000)}
             rotationInterval={rotationInterval}
-            onChange={(field: ConfigField, value: number) => {
+            onChange={async (field: ConfigField, value: number) => {
               if (field === 'rows') setRows(value);
               else if (field === 'cols') setCols(value);
               else if (field === 'duration') setDuration(value * 60000);
               else if (field === 'rotationInterval') setRotationInterval(value);
+
+              // Persist change
+              const storageValue = field === 'duration' ? value * 60000 : value;
+              await AsyncStorage.setItem(field, storageValue.toString());
             }}
           />
           <View style={{marginTop: 20}}>

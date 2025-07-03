@@ -42,7 +42,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onChangeText={(text) => onChange('duration', parseInt(text) || 1)}
       />
 
-      <Text style={styles.label}>Rotation Interval (ms, 0 = no rotation):</Text>
+      <Text style={styles.label}>Rotation Interval (sec, 0 = no rotation):</Text>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
