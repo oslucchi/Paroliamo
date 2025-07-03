@@ -30,7 +30,9 @@ const Matrix: React.FC<MatrixProps> = ({
         <View style={styles.row} key={`row-${rowIndex}`}>
           {row.map((letter, colIndex) => (
             <View style={[styles.cell, { width: cellSize, height: cellSize }]} key={`cell-${rowIndex}-${colIndex}`}>
-                <Text style={{fontSize: cellSize * 0.6, fontWeight: 'bold'}}>{letter}</Text>
+                <Text style={{fontSize: cellSize * 0.6, fontWeight: 'bold'}}>
+                    {visible ? letter : ' '}
+                </Text>
             </View>
           ))}
         </View>

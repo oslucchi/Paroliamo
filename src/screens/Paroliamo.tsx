@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   SafeAreaView,
   View,
@@ -7,10 +7,10 @@ import {
   Modal,
   Button,
 } from 'react-native';
-import { Appbar, IconButton } from 'react-native-paper';
+import {Appbar} from 'react-native-paper';
 import Matrix from '../components/Matrix';
 import SettingsPanel from '../components/SettingsPanel';
-import { generateMatrix } from '../utils/matrixGenerator';
+import {generateMatrix} from '../utils/matrixGenerator';
 
 type ConfigField = 'rows' | 'cols' | 'duration';
 
@@ -20,48 +20,57 @@ const Paroliamo = () => {
   const [duration, setDuration] = useState(3 * 60 * 1000); // in ms
 
   const [matrix, setMatrix] = useState<string[][]>([]);
-  const [visible, setVisible] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Create an empty matrix initially and on size change
+  const intervalRef = useRef<number | null>(null);
+
+  // Initialize with empty matrix
   useEffect(() => {
-    const emptyMatrix = Array.from({ length: rows }, () =>
-      Array(cols).fill('')
-    );
+    const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
     setMatrix(emptyMatrix);
   }, [rows, cols]);
 
-  // Handle timer countdown
+  // Countdown handler
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    if (isRunning && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1000);
+    if (isRunning && timeLeft > 0 && !isPaused) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1000) {
+            clearInterval(intervalRef.current!);
+            setIsRunning(false);
+            return 0;
+          }
+          return prev - 1000;
+        });
       }, 1000);
-    } else if (isRunning && timeLeft <= 0) {
-      setIsRunning(false);
     }
-
-    return () => clearInterval(timer);
-  }, [isRunning, timeLeft]);
+    return () => clearInterval(intervalRef.current!);
+  }, [isRunning, isPaused]);
 
   const handleStart = () => {
     setMatrix(generateMatrix(rows, cols));
-    setVisible(true);
     setIsRunning(true);
+    setIsPaused(false);
     setTimeLeft(duration);
   };
 
+  const handleStop = () => {
+    setIsPaused(true);
+    clearInterval(intervalRef.current!);
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+  };
+
   const handleShuffle = () => {
-    const emptyMatrix = Array.from({ length: rows }, () =>
-      Array(cols).fill('')
-    );
+    const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
     setMatrix(emptyMatrix);
-    setVisible(false);
     setIsRunning(false);
+    setIsPaused(false);
     setTimeLeft(duration);
   };
 
@@ -74,27 +83,38 @@ const Paroliamo = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top App Bar */}
       <Appbar.Header>
         <Appbar.Content title="Paroliamo" />
         <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} />
       </Appbar.Header>
 
       {/* Timer */}
-      {visible && (
-        <Text style={styles.timer}>Time Left: {formatTime(timeLeft)}</Text>
-      )}
+      <Text style={styles.timer}>Time Left: {formatTime(timeLeft)}</Text>
 
       {/* Matrix */}
-      <Matrix rows={rows} cols={cols} visible={visible} matrix={matrix} />
-
-      {/* Start / Shuffle Button */}
+      <Matrix rows={rows} cols={cols} visible={true} matrix={matrix} />
+      
+      {/* Buttons */}
       <View style={styles.buttonContainer}>
-        {!isRunning && (
-          <Button
-            title={visible ? 'Shuffle' : 'Start'}
-            onPress={visible ? handleShuffle : handleStart}
-          />
+        {!isRunning && timeLeft === duration && (
+          <Button title="Start" onPress={handleStart} />
+        )}
+
+        {isRunning && !isPaused && (
+          <Button title="Stop" onPress={handleStop} />
+        )}
+
+        {isPaused && (
+          <>
+            <Button title="Resume" onPress={handleResume} />
+            <View style={{marginTop: 10}}>
+              <Button title="Shuffle" onPress={handleShuffle} />
+            </View>
+          </>
+        )}
+
+        {!isRunning && timeLeft === 0 && (
+          <Button title="Shuffle" onPress={handleShuffle} />
         )}
       </View>
 
@@ -112,7 +132,7 @@ const Paroliamo = () => {
               else if (field === 'duration') setDuration(value * 60000);
             }}
           />
-          <View style={{ marginTop: 20 }}>
+          <View style={{marginTop: 20}}>
             <Button title="Close" onPress={() => setShowSettings(false)} />
           </View>
         </SafeAreaView>
