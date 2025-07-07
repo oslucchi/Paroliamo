@@ -164,7 +164,7 @@ const Paroliamo = () => {
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Appbar.Header>
             <Appbar.Content title="Paroliamo" />
-            <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} />
+            <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} disabled={isRunning}/>
           </Appbar.Header>
 
           {preCountdown !== null && (
