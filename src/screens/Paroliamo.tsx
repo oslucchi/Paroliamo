@@ -17,7 +17,7 @@ import SettingsPanel from '../components/SettingsPanel';
 import {generateMatrix} from '../utils/matrixGenerator';
 import Sound from 'react-native-sound';
 
-type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval';
+type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
 const Paroliamo = () => {
   const [rows, setRows] = useState(5);
@@ -37,7 +37,8 @@ const Paroliamo = () => {
   const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
-  const [rotationInterval, setRotationInterval] = useState(5); // sec, 0 = no rotation
+  const [rotationInterval, setRotationInterval] = useState(1); // sec, 0 = no rotation
+  const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
 
   Sound.setCategory('Playback');
   // load config parms eventually saved
@@ -48,11 +49,13 @@ const Paroliamo = () => {
         const savedCols = await AsyncStorage.getItem('cols');
         const savedDuration = await AsyncStorage.getItem('duration');
         const savedRotation = await AsyncStorage.getItem('rotationInterval');
+        const savedRotateDegrees = await AsyncStorage.getItem('rotateDegrees');
 
         if (savedRows) setRows(Number(savedRows));
         if (savedCols) setCols(Number(savedCols));
         if (savedDuration) setDuration(Number(savedDuration));
         if (savedRotation) setRotationInterval(Number(savedRotation));
+        if (savedRotateDegrees) setRotateDegrees(Number(savedRotateDegrees))
       } catch (err) {
         console.warn('Failed to load saved settings:', err);
       }
@@ -87,14 +90,14 @@ const Paroliamo = () => {
 
   // Cell rotation interval
   useEffect(() => {
-    if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
+    if (isRunning && !isPaused && isRotating && rotationInterval > 0 && rotateDegrees > 0) {
       rotationIntervalRef.current = setInterval(() => {
-        setRotationAngle(prev => (prev + 90) % 360);
+        setRotationAngle(prev => (prev + rotateDegrees) % 360);
       }, rotationInterval * 1000);
     }
-
+    console.log(`rotate by ${rotationAngle}`);
     return () => clearInterval(rotationIntervalRef.current!);
-  }, [isRunning, isPaused, isRotating, rotationInterval]);
+  }, [isRunning, isPaused, isRotating, rotationInterval, rotateDegrees]);
 
   const playBeep = () => {
     const beep = new Sound(require('../../assets/sounds/beep.mp3'), error => {
@@ -218,11 +221,13 @@ const Paroliamo = () => {
             cols={cols}
             duration={Math.floor(duration / 60000)}
             rotationInterval={rotationInterval}
+            rotateDegrees={rotateDegrees}
             onChange={async (field: ConfigField, value: number) => {
               if (field === 'rows') setRows(value);
               else if (field === 'cols') setCols(value);
               else if (field === 'duration') setDuration(value * 60000);
               else if (field === 'rotationInterval') setRotationInterval(value);
+              else if (field === 'rotateDegrees') setRotateDegrees(value);
 
               // Persist change
               const storageValue = field === 'duration' ? value * 60000 : value;

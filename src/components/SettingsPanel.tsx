@@ -5,8 +5,9 @@ interface SettingsPanelProps {
   rows: number;
   cols: number;
   duration: number; // in minutes
-  rotationInterval: number; // in ms
-  onChange: (field: 'rows' | 'cols' | 'duration' | 'rotationInterval', value: number) => void;
+  rotationInterval: number; // in sec
+  rotateDegrees: number; 
+  onChange: (field: 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees', value: number) => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -14,6 +15,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   cols,
   duration,
   rotationInterval,
+  rotateDegrees,
   onChange,
 }) => {
   return (
@@ -50,6 +52,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onChangeText={(text) => onChange('rotationInterval', parseInt(text) || 0)}
       />
 
+      <Text style={styles.label}>Rotate degrees (deg, 0 = no rotation):</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={rotateDegrees.toString()}
+        onChangeText={(text) => onChange('rotateDegrees', parseInt(text) || 0)}
+      />
     </View>
   );
 };
