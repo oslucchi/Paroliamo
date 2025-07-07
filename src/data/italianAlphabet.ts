@@ -1,4 +1,28 @@
 export const italianAlphabetProbabilities: { [key: string]: number } = {
+  A: 9.74,
+  B: 2.92,
+  C: 4.5,
+  D: 3.73,
+  E: 8.79,
+  F: 2.95,
+  G: 2.64,
+  H: 1.54,
+  I: 8.28,
+  L: 5.51,
+  M: 3.56,
+  N: 6.88,
+  O: 8.83,
+  P: 3.05,
+  Q: 1.51,
+  R: 5.37,
+  S: 4.98,
+  T: 5.62,
+  U: 5.01,
+  V: 3.10,
+  Z: 1.49,
+};
+
+export const italianAlphabetProbabilitiesOriginal: { [key: string]: number } = {
   A: 11.74,
   B: 0.92,
   C: 4.5,
@@ -21,4 +45,3 @@ export const italianAlphabetProbabilities: { [key: string]: number } = {
   V: 2.10,
   Z: 0.49,
 };
-

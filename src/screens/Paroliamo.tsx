@@ -116,6 +116,7 @@ const Paroliamo = () => {
 
   const handleStart = () => {
     let count = 3;
+    setRotationAngle(0);
     setPreCountdown(count);
     const countdownInterval = setInterval(() => {
       playBeep();
