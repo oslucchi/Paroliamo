@@ -124,3 +124,5 @@ coverage/
 
 # NPM logs
 *.log
+
+docs/
