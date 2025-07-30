@@ -16,6 +16,9 @@ import Matrix from '../components/Matrix';
 import SettingsPanel from '../components/SettingsPanel';
 import {generateMatrix} from '../utils/matrixGenerator';
 import Sound from 'react-native-sound';
+import { Dimensions } from 'react-native';
+import KeepAwake from '@sayem314/react-native-keep-awake';
+
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
@@ -39,6 +42,8 @@ const Paroliamo = () => {
   );
   const [rotationInterval, setRotationInterval] = useState(1); // sec, 0 = no rotation
   const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
 
   Sound.setCategory('Playback');
   // load config parms eventually saved
@@ -63,6 +68,19 @@ const Paroliamo = () => {
 
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    const updateOrientation = () => {
+      const { width, height } = Dimensions.get('window');
+      setOrientation(height >= width ? 'portrait' : 'landscape');
+    };
+
+    const subscription = Dimensions.addEventListener('change', updateOrientation);
+    updateOrientation(); // initial check
+
+    return () => subscription.remove();
+  }, []);
+
 
   // Initial empty matrix
   useEffect(() => {
@@ -156,12 +174,48 @@ const Paroliamo = () => {
     return `${min}:${rem.toString().padStart(2, '0')}`;
   };
 
+  const renderButtons = () => (
+    <>
+      {isRunning && !isPaused && <KeepAwake />}
+
+      {!isRunning && timeLeft === duration && (
+        <Button title="Start" onPress={handleStart} />
+      )}
+      {isRunning && !isPaused && (
+        
+        <Button title="Stop" onPress={handleStop} />
+      )}
+      {isPaused && (
+        <>
+          <Button title="Resume" onPress={handleResume} />
+          <View style={{ marginTop: 10 }}>
+            <Button title="Shuffle" onPress={handleShuffle} />
+          </View>
+        </>
+      )}
+      {!isRunning && timeLeft === 0 && (
+        <Button title="Shuffle" onPress={handleShuffle} />
+      )}
+      <View style={{ marginTop: 20 }}>
+        <Button
+          title={isRotating ? 'Disable Rotation' : 'Enable Rotation'}
+          onPress={() => setIsRotating(prev => !prev)}
+        />
+      </View>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{flex: 1}}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContainer,
+            orientation === 'landscape' && styles.landscapeLayout,
+          ]}
+        >
           <Appbar.Header>
             <Appbar.Content title="Paroliamo" />
             <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} disabled={isRunning}/>
@@ -183,34 +237,15 @@ const Paroliamo = () => {
             matrix={matrix}
             rotationAngle={rotationAngle}
           />
-
-          <View style={styles.buttonContainer}>
-            {!isRunning && timeLeft === duration && (
-              <Button title="Start" onPress={handleStart} />
+            {orientation === 'portrait' ? (
+              <View style={styles.buttonContainer}>
+                {renderButtons()}
+              </View>
+            ) : (
+              <View style={styles.sideButtons}>
+                {renderButtons()}
+              </View>
             )}
-            {isRunning && !isPaused && (
-              <Button title="Stop" onPress={handleStop} />
-            )}
-            {isPaused && (
-              <>
-                <Button title="Resume" onPress={handleResume} />
-                <View style={{marginTop: 10}}>
-                  <Button title="Shuffle" onPress={handleShuffle} />
-                </View>
-              </>
-            )}
-            {!isRunning && timeLeft === 0 && (
-              <Button title="Shuffle" onPress={handleShuffle} />
-            )}
-
-            {/* Rotation toggle */}
-            <View style={{marginTop: 20}}>
-              <Button
-                title={isRotating ? 'Disable Rotation' : 'Enable Rotation'}
-                onPress={() => setIsRotating(prev => !prev)}
-              />
-            </View>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -276,6 +311,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
+  sideButtons: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    gap: 12,
+  },
   settingsModal: {
     flex: 1,
     padding: 20,
@@ -292,5 +334,11 @@ const styles = StyleSheet.create({
     marginVertical: 30,
     fontWeight: 'bold',
     color: '#c22200',
+  },
+  landscapeLayout: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
 });
