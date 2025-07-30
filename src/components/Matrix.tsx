@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 interface MatrixProps {
@@ -6,7 +6,7 @@ interface MatrixProps {
   cols?: number;
   visible: boolean;
   matrix: string[][];
-  rotationAngle?: number;
+  rotationAngle?: number; // dynamic angle to apply during runtime
 }
 
 const Matrix: React.FC<MatrixProps> = ({
@@ -20,6 +20,16 @@ const Matrix: React.FC<MatrixProps> = ({
   const totalSpacing = 8 * cols;
   const cellSize = (screenWidth - totalSpacing - 32) / cols;
 
+  // Generate a persistent matrix of base angles (0, 90, 180, 270) on first render
+  const baseAnglesMatrix = useMemo(() => {
+    return matrix.map(row =>
+      row.map(() => {
+        const angles = [0, 90, 180, 270];
+        return angles[Math.floor(Math.random() * angles.length)];
+      })
+    );
+  }, [matrix]);
+
   if (!visible) return null;
 
   return (
@@ -27,11 +37,8 @@ const Matrix: React.FC<MatrixProps> = ({
       {matrix.map((row, rowIndex) => (
         <View style={styles.row} key={`row-${rowIndex}`}>
           {row.map((letter, colIndex) => {
-            const animatedValue = new Animated.Value(rotationAngle);
-            const rotate = animatedValue.interpolate({
-              inputRange: [0, 360],
-              outputRange: ['0deg', '360deg'],
-            });
+            const baseAngle = baseAnglesMatrix[rowIndex][colIndex];
+            const totalAngle = baseAngle + rotationAngle;
 
             return (
               <View
@@ -43,7 +50,7 @@ const Matrix: React.FC<MatrixProps> = ({
                     fontSize: cellSize * 0.6,
                     fontWeight: 'bold',
                     color: '#c22200',
-                    transform: [{ rotate: `${rotationAngle}deg` }],
+                    transform: [{ rotate: `${totalAngle}deg` }],
                   }}
                 >
                   {letter}
@@ -74,8 +81,8 @@ const styles = StyleSheet.create({
     margin: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5dc', // light beige
+    backgroundColor: '#f5f5dc',
     borderWidth: 1,
-    borderColor: '#d2b48c', // light brown
+    borderColor: '#d2b48c',
   },
 });
