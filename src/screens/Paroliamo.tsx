@@ -18,16 +18,17 @@ import {generateMatrix} from '../utils/matrixGenerator';
 import Sound from 'react-native-sound';
 import { Dimensions } from 'react-native';
 import KeepAwake from '@sayem314/react-native-keep-awake';
+import { Cell } from '../types/cell';
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
-const rotateMatrixBy90 = (matrix: string[][]): string[][] => {
+const rotateMatrixBy90 = (matrix: Cell[][]): Cell[][] => {
   const rows = matrix.length;
   const cols = matrix[0]?.length ?? 0;
-  const rotated: string[][] = [];
+  const rotated: Cell[][] = [];
 
   for (let col = 0; col < cols; col++) {
-    const newRow: string[] = [];
+    const newRow: Cell[] = [];
     for (let row = rows - 1; row >= 0; row--) {
       newRow.push(matrix[row][col]);
     }
@@ -42,7 +43,7 @@ const Paroliamo = () => {
   const [cols, setCols] = useState(5);
   const [duration, setDuration] = useState(3 * 60 * 1000);
 
-  const [matrix, setMatrix] = useState<string[][]>([]);
+  const [matrix, setMatrix] = useState<Cell[][]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);

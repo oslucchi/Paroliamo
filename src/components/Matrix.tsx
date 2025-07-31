@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { Cell } from '../types/cell';
 
 interface MatrixProps {
   rows?: number;
   cols?: number;
   visible: boolean;
-  matrix: string[][];
+  matrix: Cell[][];
   rotationAngle?: number;
   rotationMode?: 'continuous' | 'by90';
 }
@@ -35,7 +36,7 @@ const Matrix: React.FC<MatrixProps> = ({
     <View style={styles.container}>
       {renderedMatrix.map((row, rowIndex) => (
         <View style={styles.row} key={`row-${rowIndex}`}>
-          {row.map((letter, colIndex) => (
+          {row.map((cell, colIndex) => (
             <View
               key={`cell-${rowIndex}-${colIndex}`}
               style={[styles.cell, { width: cellSize, height: cellSize }]}
@@ -47,12 +48,12 @@ const Matrix: React.FC<MatrixProps> = ({
                   color: '#c22200',
                   transform:
                     rotationMode === 'continuous'
-                      ? [{ rotate: `${rotationAngle}deg` }]
+                      ? [{ rotate: `${(cell.baseAngle + rotationAngle) % 360}deg` }]
                       : undefined,
-                  textDecorationLine: letter === 'N' || letter === 'Z' ? 'underline' : 'none',
+                  textDecorationLine: cell.letter === 'N' || cell.letter === 'Z' ? 'underline' : 'none',
                 }}
               >
-                {letter}
+                {cell.letter}
               </Animated.Text>
             </View>
           ))}
