@@ -1,6 +1,14 @@
 {
+  "extends": "@tsconfig/react-native/tsconfig.json",
   "compilerOptions": {
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "esModuleInterop": true,
+    "skipLibCheck": true,      // Avoid conflicts with @types
+    "strict": true,            // Optional: Enable for stricter checks
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
   },
-  "extends": "@tsconfig/react-native/tsconfig.json"
+  "include": ["src/**/*"],     // Explicitly define files to compile
+  "exclude": ["node_modules"]
 }

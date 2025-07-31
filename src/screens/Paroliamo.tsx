@@ -21,6 +21,22 @@ import KeepAwake from '@sayem314/react-native-keep-awake';
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
+const rotateMatrixBy90 = (matrix: string[][]): string[][] => {
+  const rows = matrix.length;
+  const cols = matrix[0]?.length ?? 0;
+  const rotated: string[][] = [];
+
+  for (let col = 0; col < cols; col++) {
+    const newRow: string[] = [];
+    for (let row = rows - 1; row >= 0; row--) {
+      newRow.push(matrix[row][col]);
+    }
+    rotated.push(newRow);
+  }
+
+  return rotated;
+};
+
 const Paroliamo = () => {
   const [rows, setRows] = useState(5);
   const [cols, setCols] = useState(5);
@@ -44,7 +60,6 @@ const Paroliamo = () => {
 
   Sound.setCategory('Playback');
 
-  // Load config params saved
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -83,13 +98,11 @@ const Paroliamo = () => {
     return () => subscription.remove();
   }, []);
 
-  // Initial empty matrix
   useEffect(() => {
     const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
     setMatrix(emptyMatrix);
   }, [rows, cols]);
 
-  // Game countdown
   useEffect(() => {
     if (isRunning && timeLeft > 0 && !isPaused) {
       intervalRef.current = setInterval(() => {
@@ -107,17 +120,14 @@ const Paroliamo = () => {
     return () => clearInterval(intervalRef.current!);
   }, [isRunning, isPaused]);
 
-  // Cell rotation interval
   useEffect(() => {
     if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
       rotationIntervalRef.current = setInterval(() => {
-        setRotationAngle(prev => {
-          if (rotationMode === 'by90') {
-            return (prev + 90) % 360;
-          } else {
-            return (prev + rotateDegrees) % 360;
-          }
-        });
+        if (rotationMode === 'by90') {
+          setMatrix(prev => rotateMatrixBy90(prev));
+        } else {
+          setRotationAngle(prev => (prev + rotateDegrees) % 360);
+        }
       }, rotationInterval * 1000);
     }
 
