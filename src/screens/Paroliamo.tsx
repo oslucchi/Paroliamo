@@ -125,9 +125,8 @@ const Paroliamo = () => {
       rotationIntervalRef.current = setInterval(() => {
         if (rotationMode === 'by90') {
           setMatrix(prev => rotateMatrixBy90(prev));
-        } else {
-          setRotationAngle(prev => (prev + rotateDegrees) % 360);
         }
+        setRotationAngle(prev => (prev + (rotationMode === 'by90' ? 90 : rotateDegrees)) % 360);
       }, rotationInterval * 1000);
     }
 
