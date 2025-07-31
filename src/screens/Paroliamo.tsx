@@ -19,7 +19,6 @@ import Sound from 'react-native-sound';
 import { Dimensions } from 'react-native';
 import KeepAwake from '@sayem314/react-native-keep-awake';
 
-
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
 const Paroliamo = () => {
@@ -34,19 +33,18 @@ const Paroliamo = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [isRotating, setIsRotating] = useState(true);
   const [rotationAngle, setRotationAngle] = useState(0);
+  const [rotationMode, setRotationMode] = useState<'continuous' | 'by90'>('continuous');
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [preCountdown, setPreCountdown] = useState<number | null>(null);
-  const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
+  const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [rotationInterval, setRotationInterval] = useState(1); // sec, 0 = no rotation
   const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
-
   Sound.setCategory('Playback');
-  // load config parms eventually saved
+
+  // Load config params saved
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -55,12 +53,16 @@ const Paroliamo = () => {
         const savedDuration = await AsyncStorage.getItem('duration');
         const savedRotation = await AsyncStorage.getItem('rotationInterval');
         const savedRotateDegrees = await AsyncStorage.getItem('rotateDegrees');
+        const savedRotationMode = await AsyncStorage.getItem('rotationMode');
 
         if (savedRows) setRows(Number(savedRows));
         if (savedCols) setCols(Number(savedCols));
         if (savedDuration) setDuration(Number(savedDuration));
         if (savedRotation) setRotationInterval(Number(savedRotation));
-        if (savedRotateDegrees) setRotateDegrees(Number(savedRotateDegrees))
+        if (savedRotateDegrees) setRotateDegrees(Number(savedRotateDegrees));
+        if (savedRotationMode === 'continuous' || savedRotationMode === 'by90') {
+          setRotationMode(savedRotationMode);
+        }
       } catch (err) {
         console.warn('Failed to load saved settings:', err);
       }
@@ -80,7 +82,6 @@ const Paroliamo = () => {
 
     return () => subscription.remove();
   }, []);
-
 
   // Initial empty matrix
   useEffect(() => {
@@ -108,14 +109,32 @@ const Paroliamo = () => {
 
   // Cell rotation interval
   useEffect(() => {
-    if (isRunning && !isPaused && isRotating && rotationInterval > 0 && rotateDegrees > 0) {
+    if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
       rotationIntervalRef.current = setInterval(() => {
-        setRotationAngle(prev => (prev + rotateDegrees) % 360);
+        setRotationAngle(prev => {
+          if (rotationMode === 'by90') {
+            return (prev + 90) % 360;
+          } else {
+            return (prev + rotateDegrees) % 360;
+          }
+        });
       }, rotationInterval * 1000);
     }
-    console.log(`rotate by ${rotationAngle}`);
+
     return () => clearInterval(rotationIntervalRef.current!);
-  }, [isRunning, isPaused, isRotating, rotationInterval, rotateDegrees]);
+  }, [isRunning, isPaused, isRotating, rotationInterval, rotateDegrees, rotationMode]);
+
+  const handleRotationModeChange = async (mode: 'continuous' | 'by90') => {
+    setRotationMode(mode);
+    if (mode === 'by90') {
+      setRotateDegrees(0);
+    }
+    try {
+      await AsyncStorage.setItem('rotationMode', mode);
+    } catch (err) {
+      console.warn('Failed to save rotationMode:', err);
+    }
+  };
 
   const playBeep = () => {
     const beep = new Sound(require('../../assets/sounds/beep.mp3'), error => {
@@ -182,7 +201,6 @@ const Paroliamo = () => {
         <Button title="Start" onPress={handleStart} />
       )}
       {isRunning && !isPaused && (
-        
         <Button title="Stop" onPress={handleStop} />
       )}
       {isPaused && (
@@ -237,15 +255,15 @@ const Paroliamo = () => {
             matrix={matrix}
             rotationAngle={rotationAngle}
           />
-            {orientation === 'portrait' ? (
-              <View style={styles.buttonContainer}>
-                {renderButtons()}
-              </View>
-            ) : (
-              <View style={styles.sideButtons}>
-                {renderButtons()}
-              </View>
-            )}
+          {orientation === 'portrait' ? (
+            <View style={styles.buttonContainer}>
+              {renderButtons()}
+            </View>
+          ) : (
+            <View style={styles.sideButtons}>
+              {renderButtons()}
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -255,20 +273,20 @@ const Paroliamo = () => {
           <SettingsPanel
             rows={rows}
             cols={cols}
-            duration={Math.floor(duration / 60000)}
+            duration={duration}
             rotationInterval={rotationInterval}
             rotateDegrees={rotateDegrees}
-            onChange={async (field: ConfigField, value: number) => {
-              if (field === 'rows') setRows(value);
-              else if (field === 'cols') setCols(value);
-              else if (field === 'duration') setDuration(value * 60000);
-              else if (field === 'rotationInterval') setRotationInterval(value);
-              else if (field === 'rotateDegrees') setRotateDegrees(value);
-
-              // Persist change
-              const storageValue = field === 'duration' ? value * 60000 : value;
-              await AsyncStorage.setItem(field, storageValue.toString());
+            rotationMode={rotationMode}
+            onChange={(field, value) => {
+              switch (field) {
+                case 'rows': setRows(value); break;
+                case 'cols': setCols(value); break;
+                case 'duration': setDuration(value); break;
+                case 'rotationInterval': setRotationInterval(value); break;
+                case 'rotateDegrees': setRotateDegrees(value); break;
+              }
             }}
+            onChangeRotationMode={handleRotationModeChange}
           />
           <View style={{marginTop: 20}}>
             <Button

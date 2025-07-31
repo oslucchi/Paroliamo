@@ -51,6 +51,7 @@ const Matrix: React.FC<MatrixProps> = ({
                     fontWeight: 'bold',
                     color: '#c22200',
                     transform: [{ rotate: `${totalAngle}deg` }],
+                    textDecorationLine: letter === 'N' || letter === 'Z' ? 'underline' : 'none',
                   }}
                 >
                   {letter}
