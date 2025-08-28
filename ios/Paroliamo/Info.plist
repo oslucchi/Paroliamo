@@ -6,6 +6,14 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Paroliamo</string>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer> <!-- iPhone -->
+		<integer>2</integer> <!-- iPad -->
+	</array>
+
+	<key>UISupportsFullScreen</key>
+	<true/>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
