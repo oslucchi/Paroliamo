@@ -19,6 +19,11 @@ import Sound from 'react-native-sound';
 import { Dimensions } from 'react-native';
 import KeepAwake from '@sayem314/react-native-keep-awake';
 import { Cell } from '../types/cell';
+import { TouchableOpacity } from 'react-native';
+import { readFile } from 'react-native-fs';
+import RNFS from 'react-native-fs';
+import { ActivityIndicator, Alert } from 'react-native';
+import { chunkedWordSearch} from '../utils/chunkedWordsSearc';
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
@@ -59,7 +64,27 @@ const Paroliamo = () => {
   const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
+  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [showBestEnabled, setShowBestEnabled] = useState(false);
+  const [showBestModal, setShowBestModal] = useState(false);
+  const [loadingDictionary, setLoadingDictionary] = useState(true);
+  const [dictionaryError, setDictionaryError] = useState<string | null>(null);
+  const searchAbortController = useRef<{ aborted: boolean }>({ aborted: false });
+
   Sound.setCategory('Playback');
+  useEffect(() => {
+    (async () => {
+      setLoadingDictionary(true);
+      setDictionaryError(null);
+      try {
+        await loadWordSet();
+      } catch (e: any) {
+        setDictionaryError('Failed to load dictionary. Please restart the app.');
+      } finally {
+        setLoadingDictionary(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -161,25 +186,72 @@ const Paroliamo = () => {
     );
   };
 
+  const searchWordsInMatrix = (
+    matrix: Cell[][],
+    onResult: (words: string[]) => void,
+    abortSignal: { aborted: boolean }
+  ) => {
+    if (!wordSet) return;
+    chunkedWordSearch(
+      matrix,
+      Array.from(wordSet),
+      (progressWords) => {
+        // Optionally update progress UI here if you want
+        setFoundWords(progressWords);
+      },
+      (finalWords) => {
+        if (!abortSignal.aborted) onResult(finalWords);
+      },
+      abortSignal
+    );
+  };
+
   const handleStart = () => {
     let count = 3;
     setRotationAngle(0);
     setPreCountdown(count);
+    setShowBestEnabled(false);
+    setFoundWords([]);
+
+    searchAbortController.current.aborted = false;
+
     const countdownInterval = setInterval(() => {
       playBeep();
       count--;
       if (count === 0) {
         clearInterval(countdownInterval);
         setPreCountdown(null);
-        setMatrix(generateMatrix(rows, cols));
+        const newMatrix = generateMatrix(rows, cols);
+        setMatrix(newMatrix);
         setIsRunning(true);
         setIsPaused(false);
         setTimeLeft(duration);
+
+                // Start background word search
+        searchWordsInMatrix(
+          newMatrix,
+          words => setFoundWords(words),
+          searchAbortController.current
+        );
+
       } else {
         setPreCountdown(count);
       }
     }, 1000);
   };
+  // --- UI helpers ---
+  const getLongestWord = () =>
+    foundWords.length > 0
+      ? foundWords.reduce((a, b) => (b.length > a.length ? b : a), foundWords[0])
+      : '';
+
+  useEffect(() => {
+    if (timeLeft === 0) {
+      setShowBestEnabled(true);
+      // Interrupt the background search
+      searchAbortController.current.aborted = true;
+    }
+  }, [timeLeft]);
 
   const handleStop = () => {
     setIsPaused(true);
@@ -232,7 +304,24 @@ const Paroliamo = () => {
       </View>
     </>
   );
-
+  if (loadingDictionary) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1976d2" />
+          <Text style={{ marginTop: 20, fontSize: 18 }}>Loading dictionary...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  if (dictionaryError) {
+    Alert.alert('Error', dictionaryError);
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={{ color: 'red', fontSize: 18, margin: 20 }}>{dictionaryError}</Text>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -257,6 +346,19 @@ const Paroliamo = () => {
             style={[styles.timer, timeLeft <= 10000 && styles.timerWarning]}>
             Time Left: {formatTime(timeLeft)}
           </Text>
+          {/* --- Live word search status --- */}
+          {
+            isRunning && (
+              <View style={styles.statusPanel}>
+                <Text style={styles.statusText}>
+                  Words found: {foundWords.length}
+                </Text>
+                <Text style={styles.statusText}>
+                  Longest is: {getLongestWord().length || '-'}
+                </Text>
+              </View>
+            )
+          }
 
           <Matrix
             rows={rows}
@@ -268,14 +370,51 @@ const Paroliamo = () => {
           {orientation === 'portrait' ? (
             <View style={styles.buttonContainer}>
               {renderButtons()}
+              {showBestEnabled && (
+                <TouchableOpacity
+                  style={styles.showBestButton}
+                  onPress={() => setShowBestModal(true)}
+                >
+                  <Text style={styles.showBestButtonText}>Show Best</Text>
+                </TouchableOpacity>
+              )}
+
             </View>
           ) : (
             <View style={styles.sideButtons}>
               {renderButtons()}
+              {showBestEnabled && (
+                <TouchableOpacity
+                  style={styles.showBestButton}
+                  onPress={() => setShowBestModal(true)}
+                >
+                  <Text style={styles.showBestButtonText}>Show Best</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showBestModal} animationType="slide" onRequestClose={() => setShowBestModal(false)}>
+        <SafeAreaView style={styles.settingsModal}>
+          <Text style={styles.settingsTitle}>Best Words</Text>
+          <ScrollView style={{ maxHeight: 400 }}>
+            {foundWords.length === 0 ? (
+              <Text>No words found.</Text>
+            ) : (
+              foundWords
+                .sort((a, b) => b.length - a.length)
+                .map((word, idx) => (
+                  <Text key={idx} style={styles.wordItem}>{word}</Text>
+                ))
+            )}
+          </ScrollView>
+          <View style={{marginTop: 20}}>
+            <Button title="Close" onPress={() => setShowBestModal(false)} />
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       <Modal visible={showSettings} animationType="slide">
         <SafeAreaView style={styles.settingsModal}>
@@ -369,4 +508,135 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+    showBestButton: {
+    marginTop: 20,
+    backgroundColor: '#1976d2',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  showBestButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  wordItem: {
+    fontSize: 18,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusPanel: {
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
 });
+
+function wordSearch(
+            matrix: Cell[][],
+            i: number,
+            j: number,
+            words: string[],
+            lettersUsed: boolean[][],
+            abortSignal: { aborted: boolean }
+          ) {
+  // Simple DFS to collect all possible words starting from (i, j)
+  // For demo, only collect words of length >= 3, no dictionary check
+
+  const rows = matrix.length;
+  const cols = matrix[0]?.length ?? 0;
+  const path: string[] = [];
+
+  async function dfs(x: number, y: number) {
+    if (abortSignal.aborted) return;
+    if (x < 0 || y < 0 || x >= rows || y >= cols) return;
+    if (lettersUsed[x][y]) return;
+
+    path.push(typeof matrix[x][y] === 'string' ? matrix[x][y] : (matrix[x][y]?.letter ?? ''));
+    
+    if (await isARealWord(path.join(''))) {
+      lettersUsed[x][y] = true;
+      words.push(path.join('').toLowerCase());
+    }
+    else if (isStartOfAWord(path.join(''))) {
+      lettersUsed[x][y] = true;
+    } else {
+      path.pop();
+      return; // prune path
+    }
+
+    // Explore 8 directions
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx !== 0 || dy !== 0) {
+          await dfs(x + dx, y + dy);
+        }
+      }
+    }
+
+    path.pop();
+    lettersUsed[x][y] = false;
+  }
+
+  dfs(i, j);
+}
+// Loads the word list once and checks if the word is present in it
+
+let wordSet: Set<string> | null = null;
+let loadingPromise: Promise<void> | null = null;
+
+async function loadWordSet() {
+  if (wordSet) return;
+  if (loadingPromise) return loadingPromise;
+  loadingPromise = (async () => {
+    let content = '';
+    try {
+      if (Platform.OS === 'web') {
+        // Web: fetch from public folder
+        const resp = await fetch('/assets/dictionaries/italiano.txt');
+        content = await resp.text();
+      } else if (Platform.OS === 'android') {
+        // Android: use readFileAssets
+        content = await RNFS.readFileAssets('dictionaries/italiano.txt', 'utf8');
+      } else {
+        // iOS: use MainBundlePath
+        const path = `${RNFS.MainBundlePath}/assets/dictionaries/italiano.txt`;
+        content = await readFile(path, 'utf8');
+      }
+      wordSet = new Set(content.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean));
+    } catch (e) {
+      wordSet = new Set();
+      console.warn('Failed to load italiano.txt:', e);
+    }
+  })();
+  return loadingPromise;
+}
+
+export async function isARealWord(word: string): Promise<boolean> {
+  await loadWordSet();
+  if (!wordSet) return false;
+  return wordSet.has(word.trim().toLowerCase());
+}
+
+// Checks if any word in the wordSet starts with the given prefix
+function isStartOfAWord(prefix: string): boolean {
+  if (!wordSet || !prefix) return false;
+  const lowerPrefix = prefix.trim().toLowerCase();
+  for (const word of wordSet) {
+    if (word.startsWith(lowerPrefix)) return true;
+  }
+  return false;
+}
+
