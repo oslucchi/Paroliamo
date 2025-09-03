@@ -5,8 +5,8 @@ import {Trie, findWordsInMatrix } from '../utils/wordFinder'
 export function chunkedWordSearch(
   matrix: Cell[][],
   dictionary: Trie,
-  onProgress: (foundWords: string[]) => void,
-  onDone: (foundWords: string[]) => void,
+  onProgress: (foundWords: { word: string, path: number[][] }[]) => void,
+  onDone: (finalWords: { word: string, path: number[][] }[]) => void,
   abortSignal: { aborted: boolean }
 ) {
   if (typeof Matrix.exportLetters !== 'function') {
@@ -22,12 +22,12 @@ export function chunkedWordSearch(
   function processChunk() {
     if (abortSignal.aborted) return;
     const end = Math.min(idx + CHUNK_SIZE, allResults.length);
-    onProgress(allResults.slice(0, end).map(result => result.word));
+    onProgress(allResults.slice(0, end));
     idx = end;
     if (idx < allResults.length) {
       setTimeout(processChunk, 16); // Yield to event loop
     } else {
-      onDone(allResults.map(result => result.word));
+      onDone(allResults);
     }
   }
 

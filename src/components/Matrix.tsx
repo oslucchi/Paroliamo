@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Cell } from '../types/cell';
 
 interface MatrixProps {
@@ -9,6 +9,7 @@ interface MatrixProps {
   matrix: Cell[][];
   rotationAngle?: number;
   rotationMode?: 'continuous' | 'by90';
+  highlightPath?: number[][];
 }
 
 const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => string[][] } = ({
@@ -18,6 +19,7 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
   matrix,
   rotationAngle = 0,
   rotationMode = 'continuous',
+  highlightPath = [],
 }) => {
   if (!visible || !Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0])) {
     return null;
@@ -36,40 +38,51 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
     <View style={styles.container}>
       {renderedMatrix.map((row, rowIndex) => (
         <View style={styles.row} key={`row-${rowIndex}`}>
-          {row.map((cell, colIndex) => (
-            <View
-              key={`cell-${rowIndex}-${colIndex}`}
-              style={[styles.cell, { width: cellSize, height: cellSize }]}
-            >
-              <Animated.Text
-                style={{
-                  fontSize: cellSize * 0.6,
-                  fontWeight: 'bold',
-                  color: '#c22200',
-                  transform:
-                    rotationMode === 'continuous'
-                      ? [{ rotate: `${(cell.baseAngle + rotationAngle) % 360}deg` }]
-                      : undefined,
-                  textDecorationLine: cell.letter === 'N' || cell.letter === 'Z' ? 'underline' : 'none',
-                }}
+          {row.map((cell, colIndex) => {
+            // Highlight if this cell is in the highlightPath
+            const isHighlighted = highlightPath?.some(
+              ([r, c]) => r === rowIndex && c === colIndex
+            );
+            return (
+              <View
+                key={`cell-${rowIndex}-${colIndex}`}
+                style={[styles.cell, { width: cellSize, height: cellSize }]}
               >
-                {cell.letter}
-              </Animated.Text>
-            </View>
-          ))}
+                <Animated.Text
+                  style={{
+                    fontSize: cellSize * 0.6,
+                    fontWeight: 'bold',
+                    color: isHighlighted ? '#1976d2' : '#c22200', // blue if highlighted, red otherwise
+                    transform:
+                      rotationMode === 'continuous'
+                        ? [{ rotate: `${(cell.baseAngle + rotationAngle) % 360}deg` }]
+                        : undefined,
+                    textDecorationLine:
+                      cell.letter === 'N' || cell.letter === 'Z' ? 'underline' : 'none',
+                  }}
+                >
+                  {cell.letter}
+                </Animated.Text>
+              </View>
+            );
+          })}
         </View>
       ))}
     </View>
   );
 };
+
 // Static method to export a matrix of letters only
 Matrix.exportLetters = function (matrix: Cell[][]): string[][] {
-  return matrix.map(row => row.map(cell =>
-    typeof cell === 'string'
-      ? cell
-      : (cell?.letter ?? '')
-  ));
+  return matrix.map(row =>
+    row.map(cell =>
+      typeof cell === 'string'
+        ? cell
+        : (cell?.letter ?? '')
+    )
+  );
 };
+
 export default Matrix;
 
 const styles = StyleSheet.create({

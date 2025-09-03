@@ -64,7 +64,7 @@ const Paroliamo = () => {
   const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
-  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [foundWords, setFoundWords] = useState<{ word: string, path: number[][] }[]>([]);
   const [showBestEnabled, setShowBestEnabled] = useState(false);
   const [showBestModal, setShowBestModal] = useState(false);
   const [loadingDictionary, setLoadingDictionary] = useState(true);
@@ -72,7 +72,8 @@ const Paroliamo = () => {
   const searchAbortController = useRef<{ aborted: boolean }>({ aborted: false });
   const [trie, setTrie] = useState<Trie | null>(null);
   const [dictLoaded, setDictLoaded] = useState(false);
-  
+  const [selectedPath, setSelectedPath] = useState<number[][]>([]);
+
   Sound.setCategory('Playback');
   useEffect(() => {
     (async () => {
@@ -208,7 +209,7 @@ const Paroliamo = () => {
 
   const searchWordsInMatrix = (
     matrix: Cell[][],
-    onResult: (words: string[]) => void,
+    onResult: (words: { word: string, path: number[][] }[]) => void,
     abortSignal: { aborted: boolean }
   ) => {
     if (!trie) return;
@@ -258,11 +259,6 @@ const Paroliamo = () => {
       }
     }, 1000);
   };
-  // --- UI helpers ---
-const getLongestWord = () =>
-    foundWords.length > 0
-      ? foundWords.reduce((a, b) => (b.length > a.length ? b : a), foundWords[0])
-      : '';
 
   useEffect(() => {
     if (timeLeft === 0) {
@@ -344,11 +340,14 @@ const getLongestWord = () =>
       </SafeAreaView>
     );
   }
+// ...inside your Paroliamo component...
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{flex: 1}}>
+        style={{ flex: 1 }}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContainer,
@@ -357,87 +356,110 @@ const getLongestWord = () =>
         >
           <Appbar.Header>
             <Appbar.Content title="Paroliamo" />
-            <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} disabled={isRunning}/>
+            <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} disabled={isRunning} />
           </Appbar.Header>
 
           {preCountdown !== null && (
             <Text style={styles.preCountdown}>{preCountdown}</Text>
           )}
 
-          <Text
-            style={[styles.timer, timeLeft <= 10000 && styles.timerWarning]}>
-            Time Left: {formatTime(timeLeft)}
-          </Text>
+          {/* Hide timer when showing best words */}
+          {!showBestModal && (
+            <Text
+              style={[styles.timer, timeLeft <= 10000 && styles.timerWarning]}>
+              Time Left: {formatTime(timeLeft)}
+            </Text>
+          )}
+
           {/* --- Live word search status --- */}
-          {
-            isRunning && (
-              <View style={styles.statusPanel}>
-                <Text style={styles.statusText}>
-                  Words found: {foundWords.length}
-                </Text>
-                <Text style={styles.statusText}>
-                  Longest is: {getLongestWord().length || '-'}
-                </Text>
-              </View>
-            )
-          }
+          {isRunning && (
+            <View style={styles.statusPanel}>
+              <Text style={styles.statusText}>
+                Words found: {foundWords.length}
+              </Text>
+              <Text style={styles.statusText}>
+                Max Length: {foundWords[0]?.word?.length || '-'}
+              </Text>
+            </View>
+          )}
 
-          <Matrix
-            rows={rows}
-            cols={cols}
-            visible={true}
-            matrix={matrix}
-            rotationAngle={rotationAngle}
-          />
-          {orientation === 'portrait' ? (
-            <View style={styles.buttonContainer}>
-              {renderButtons()}
-              {showBestEnabled && (
-                <TouchableOpacity
-                  style={styles.showBestButton}
-                  onPress={() => setShowBestModal(true)}
+          {showBestModal ? (
+            <View style={{ flex: 1 }}>
+              <Matrix
+                rows={rows}
+                cols={cols}
+                visible={true}
+                matrix={matrix}
+                rotationAngle={rotationAngle}
+                highlightPath={selectedPath}
+              />
+              <View style={{ flex: 1, minHeight: 100, maxHeight: 300, marginVertical: 10 }}>
+                <ScrollView
+                  style={styles.bestWordsList}
+                  contentContainerStyle={{ flexGrow: 1 }}
+                  showsVerticalScrollIndicator={true}
                 >
-                  <Text style={styles.showBestButtonText}>Show Best</Text>
-                </TouchableOpacity>
-              )}
-
+                  {foundWords.length === 0 ? (
+                    <Text>No words found.</Text>
+                  ) : (
+                    foundWords.map((item, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => setSelectedPath(item.path)}
+                      >
+                        <Text style={styles.wordItem}>{item.word}</Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
+              <View style={{ marginTop: 10, marginBottom: 20 }}>
+                <Button title="Back to play" onPress={() => {
+                  setShowBestModal(false);
+                  setSelectedPath([]);
+                }} />
+              </View>
             </View>
           ) : (
-            <View style={styles.sideButtons}>
-              {renderButtons()}
-              {showBestEnabled && (
-                <TouchableOpacity
-                  style={styles.showBestButton}
-                  onPress={() => setShowBestModal(true)}
-                >
-                  <Text style={styles.showBestButtonText}>Show Best</Text>
-                </TouchableOpacity>
+              <>
+              <Matrix
+                rows={rows}
+                cols={cols}
+                visible={true}
+                matrix={matrix}
+                rotationAngle={rotationAngle}
+              />
+              {orientation === 'portrait' ? (
+                <View style={styles.buttonContainer}>
+                  {renderButtons()}
+                  {showBestEnabled && (
+                    <TouchableOpacity
+                      style={styles.showBestButton}
+                      onPress={() => setShowBestModal(true)}
+                    >
+                      <Text style={styles.showBestButtonText}>Show Best</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.sideButtons}>
+                  {renderButtons()}
+                  {showBestEnabled && (
+                    <TouchableOpacity
+                      style={styles.showBestButton}
+                      onPress={() => setShowBestModal(true)}
+                    >
+                      <Text style={styles.showBestButtonText}>Show Best</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
-            </View>
+            </>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={showBestModal} animationType="slide" onRequestClose={() => setShowBestModal(false)}>
-        <SafeAreaView style={styles.settingsModal}>
-          <Text style={styles.settingsTitle}>Best Words</Text>
-          <ScrollView style={{ maxHeight: 400 }}>
-            {foundWords.length === 0 ? (
-              <Text>No words found.</Text>
-            ) : (
-              foundWords
-                .sort((a, b) => b.length - a.length)
-                .map((word, idx) => (
-                  <Text key={idx} style={styles.wordItem}>{word}</Text>
-                ))
-            )}
-          </ScrollView>
-          <View style={{marginTop: 20}}>
-            <Button title="Close" onPress={() => setShowBestModal(false)} />
-          </View>
-        </SafeAreaView>
-      </Modal>
-
+      {/* Settings Modal */}
       <Modal visible={showSettings} animationType="slide">
         <SafeAreaView style={styles.settingsModal}>
           <Text style={styles.settingsTitle}>Settings</Text>
@@ -459,7 +481,7 @@ const getLongestWord = () =>
             }}
             onChangeRotationMode={handleRotationModeChange}
           />
-          <View style={{marginTop: 20}}>
+          <View style={{ marginTop: 20 }}>
             <Button
               title="Close"
               onPress={() => {
@@ -563,6 +585,12 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  bestWordsList: {
+    flexGrow: 1,
+    minHeight: 100,
+    maxHeight: 200,
+    marginHorizontal: 20,
   },
 });
 
