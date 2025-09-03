@@ -116,7 +116,11 @@ const Paroliamo = () => {
         if (savedCols) setCols(Number(savedCols));
         if (savedDuration) setDuration(Number(savedDuration));
         if (savedRotation) setRotationInterval(Number(savedRotation));
-        if (savedRotateDegrees) setRotateDegrees(Number(savedRotateDegrees));
+        if (Number(savedRotateDegrees) != 0) {
+          setRotateDegrees(Number(savedRotateDegrees));
+        } else {
+          setIsRotating(false);
+        }
         if (savedRotationMode === 'continuous' || savedRotationMode === 'by90') {
           setRotationMode(savedRotationMode);
         }
@@ -281,6 +285,7 @@ const getLongestWord = () =>
     setIsRunning(false);
     setIsPaused(false);
     setTimeLeft(duration);
+    setShowBestEnabled(false);
   };
 
   const formatTime = (ms: number) => {
@@ -311,12 +316,14 @@ const getLongestWord = () =>
       {!isRunning && timeLeft === 0 && (
         <Button title="Shuffle" onPress={handleShuffle} />
       )}
-      <View style={{ marginTop: 20 }}>
-        <Button
-          title={isRotating ? 'Disable Rotation' : 'Enable Rotation'}
-          onPress={() => setIsRotating(prev => !prev)}
-        />
-      </View>
+      {isRunning && 
+        <View style={{ marginTop: 20 }}>
+          <Button
+            title={isRotating ? 'Disable Rotation' : 'Enable Rotation'}
+            onPress={() => setIsRotating(prev => !prev)}
+          />
+        </View>
+      }
     </>
   );
   if (loadingDictionary) {
