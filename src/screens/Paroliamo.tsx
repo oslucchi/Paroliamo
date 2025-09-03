@@ -20,10 +20,10 @@ import { Dimensions } from 'react-native';
 import KeepAwake from '@sayem314/react-native-keep-awake';
 import { Cell } from '../types/cell';
 import { TouchableOpacity } from 'react-native';
-import { readFile } from 'react-native-fs';
-import RNFS from 'react-native-fs';
 import { ActivityIndicator, Alert } from 'react-native';
 import { chunkedWordSearch} from '../utils/chunkedWordsSearc';
+import { Trie } from '../utils/wordFinder';
+import RNFS from 'react-native-fs';
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
@@ -70,14 +70,30 @@ const Paroliamo = () => {
   const [loadingDictionary, setLoadingDictionary] = useState(true);
   const [dictionaryError, setDictionaryError] = useState<string | null>(null);
   const searchAbortController = useRef<{ aborted: boolean }>({ aborted: false });
-
+  const [trie, setTrie] = useState<Trie | null>(null);
+  const [dictLoaded, setDictLoaded] = useState(false);
+  
   Sound.setCategory('Playback');
   useEffect(() => {
     (async () => {
       setLoadingDictionary(true);
       setDictionaryError(null);
       try {
-        await loadWordSet();
+        // Adjust path as needed for your platform
+        let dictContent = '';
+        if (Platform.OS === 'android') {
+          dictContent = await RNFS.readFileAssets('dictionaries/italiano.txt', 'utf8');
+        } else if (Platform.OS === 'ios') {
+          dictContent = await RNFS.readFile(`${RNFS.MainBundlePath}/assets/dictionaries/italiano.txt`, 'utf8');
+        } else {
+          // fallback for web or other
+          dictContent = '';
+        }
+        const lines = dictContent.split(/\r?\n/).map(w => w.trim().toLowerCase()).filter(Boolean);
+        const trieObj = new Trie();
+        for (const w of lines) trieObj.insert(w);
+        setTrie(trieObj);
+        setDictLoaded(true);
       } catch (e: any) {
         setDictionaryError('Failed to load dictionary. Please restart the app.');
       } finally {
@@ -191,12 +207,11 @@ const Paroliamo = () => {
     onResult: (words: string[]) => void,
     abortSignal: { aborted: boolean }
   ) => {
-    if (!wordSet) return;
+    if (!trie) return;
     chunkedWordSearch(
       matrix,
-      Array.from(wordSet),
+      trie,
       (progressWords) => {
-        // Optionally update progress UI here if you want
         setFoundWords(progressWords);
       },
       (finalWords) => {
@@ -240,7 +255,7 @@ const Paroliamo = () => {
     }, 1000);
   };
   // --- UI helpers ---
-  const getLongestWord = () =>
+const getLongestWord = () =>
     foundWords.length > 0
       ? foundWords.reduce((a, b) => (b.length > a.length ? b : a), foundWords[0])
       : '';
@@ -544,99 +559,4 @@ const styles = StyleSheet.create({
   },
 });
 
-function wordSearch(
-            matrix: Cell[][],
-            i: number,
-            j: number,
-            words: string[],
-            lettersUsed: boolean[][],
-            abortSignal: { aborted: boolean }
-          ) {
-  // Simple DFS to collect all possible words starting from (i, j)
-  // For demo, only collect words of length >= 3, no dictionary check
-
-  const rows = matrix.length;
-  const cols = matrix[0]?.length ?? 0;
-  const path: string[] = [];
-
-  async function dfs(x: number, y: number) {
-    if (abortSignal.aborted) return;
-    if (x < 0 || y < 0 || x >= rows || y >= cols) return;
-    if (lettersUsed[x][y]) return;
-
-    path.push(typeof matrix[x][y] === 'string' ? matrix[x][y] : (matrix[x][y]?.letter ?? ''));
-    
-    if (await isARealWord(path.join(''))) {
-      lettersUsed[x][y] = true;
-      words.push(path.join('').toLowerCase());
-    }
-    else if (isStartOfAWord(path.join(''))) {
-      lettersUsed[x][y] = true;
-    } else {
-      path.pop();
-      return; // prune path
-    }
-
-    // Explore 8 directions
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        if (dx !== 0 || dy !== 0) {
-          await dfs(x + dx, y + dy);
-        }
-      }
-    }
-
-    path.pop();
-    lettersUsed[x][y] = false;
-  }
-
-  dfs(i, j);
-}
-// Loads the word list once and checks if the word is present in it
-
-let wordSet: Set<string> | null = null;
-let loadingPromise: Promise<void> | null = null;
-
-async function loadWordSet() {
-  if (wordSet) return;
-  if (loadingPromise) return loadingPromise;
-  loadingPromise = (async () => {
-    let content = '';
-    try {
-      if (Platform.OS === 'web') {
-        // Web: fetch from public folder
-        const resp = await fetch('/assets/dictionaries/italiano.txt');
-        content = await resp.text();
-      } else if (Platform.OS === 'android') {
-        // Android: use readFileAssets
-        content = await RNFS.readFileAssets('dictionaries/italiano.txt', 'utf8');
-      } else {
-        // iOS: use MainBundlePath
-        const path = `${RNFS.MainBundlePath}/assets/dictionaries/italiano.txt`;
-        content = await readFile(path, 'utf8');
-      }
-      wordSet = new Set(content.split('\n').map(w => w.trim().toLowerCase()).filter(Boolean));
-    } catch (e) {
-      wordSet = new Set();
-      console.warn('Failed to load italiano.txt:', e);
-    }
-  })();
-  return loadingPromise;
-}
-
-export async function isARealWord(word: string): Promise<boolean> {
-  await loadWordSet();
-  if (!wordSet) return false;
-  return wordSet.has(word.trim().toLowerCase());
-}
-
-// Checks if any word in the wordSet starts with the given prefix
-function isStartOfAWord(prefix: string): boolean {
-  if (!wordSet || !prefix) return false;
-  const lowerPrefix = prefix.trim().toLowerCase();
-  for (const word of wordSet) {
-    if (word.startsWith(lowerPrefix)) return true;
-  }
-  return false;
-}
 

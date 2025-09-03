@@ -1,41 +1,35 @@
+import Matrix from '../components/Matrix';
 import { Cell } from '../types/cell';
+import {Trie, findWordsInMatrix } from '../utils/wordFinder'
 
 export function chunkedWordSearch(
   matrix: Cell[][],
-  dictionary: string[],
+  dictionary: Trie,
   onProgress: (foundWords: string[]) => void,
   onDone: (foundWords: string[]) => void,
   abortSignal: { aborted: boolean }
 ) {
-  const found = new Set<string>();
-  const dictSet = new Set(dictionary);
-  let row = 0;
-  const ROWS_PER_CHUNK = 2; // Tune this for your needs
+  if (typeof Matrix.exportLetters !== 'function') {
+    throw new Error('Matrix.exportLetters is undefined');
+  }
+  const letterMatrix = Matrix.exportLetters(matrix);
+  const allResults = findWordsInMatrix(letterMatrix, dictionary, { minWordLen: 4, diagonals: true });
 
-  function processNextRows() {
+  // Chunked reporting for UI responsiveness
+  let idx = 0;
+  const CHUNK_SIZE = 20;
+
+  function processChunk() {
     if (abortSignal.aborted) return;
-    let processed = 0;
-    while (row < matrix.length && processed < ROWS_PER_CHUNK) {
-      let word = '';
-      for (let col = 0; col < matrix[row].length; col++) {
-        const letter = typeof matrix[row][col] === 'string'
-          ? matrix[row][col]
-          : (matrix[row][col]?.letter ?? '');
-        word += letter;
-        if (word.length >= 3 && dictSet.has(word.toLowerCase())) {
-          found.add(word.toLowerCase());
-        }
-      }
-      row++;
-      processed++;
-    }
-    onProgress(Array.from(found));
-    if (row < matrix.length) {
-      setTimeout(processNextRows, 16); // Yield to event loop (~1 frame at 60fps)
+    const end = Math.min(idx + CHUNK_SIZE, allResults.length);
+    onProgress(allResults.slice(0, end).map(result => result.word));
+    idx = end;
+    if (idx < allResults.length) {
+      setTimeout(processChunk, 16); // Yield to event loop
     } else {
-      onDone(Array.from(found));
+      onDone(allResults.map(result => result.word));
     }
   }
 
-  processNextRows();
+  processChunk();
 }

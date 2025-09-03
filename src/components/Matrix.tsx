@@ -11,7 +11,7 @@ interface MatrixProps {
   rotationMode?: 'continuous' | 'by90';
 }
 
-const Matrix: React.FC<MatrixProps> = ({
+const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => string[][] } = ({
   rows = 5,
   cols = 5,
   visible,
@@ -62,7 +62,14 @@ const Matrix: React.FC<MatrixProps> = ({
     </View>
   );
 };
-
+// Static method to export a matrix of letters only
+Matrix.exportLetters = function (matrix: Cell[][]): string[][] {
+  return matrix.map(row => row.map(cell =>
+    typeof cell === 'string'
+      ? cell
+      : (cell?.letter ?? '')
+  ));
+};
 export default Matrix;
 
 const styles = StyleSheet.create({
