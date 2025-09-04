@@ -73,6 +73,8 @@ const Paroliamo = () => {
   const [trie, setTrie] = useState<Trie | null>(null);
   const [dictLoaded, setDictLoaded] = useState(false);
   const [selectedPath, setSelectedPath] = useState<number[][]>([]);
+  const [animatingPath, setAnimatingPath] = useState<number[][]>([]);
+  const [animatingIndex, setAnimatingIndex] = useState<number>(-1);
 
   Sound.setCategory('Playback');
   useEffect(() => {
@@ -224,6 +226,31 @@ const Paroliamo = () => {
       },
       abortSignal
     );
+  };
+
+  const handleWordSelect = (path: number[][]) => {
+    setSelectedPath([]);
+    setAnimatingPath(path);
+    setAnimatingIndex(0);
+
+    let idx = 0;
+    let bluePath: number[][] = [];
+    const interval = setInterval(() => {
+      setAnimatingIndex(idx);
+      if (idx > 0) {
+        bluePath = path.slice(0, idx);
+        setSelectedPath(bluePath);
+      }
+      if (idx === path.length - 1) {
+        // Last cell: highlight yellow for 80ms, then turn all blue
+        setTimeout(() => {
+          setSelectedPath(path); // All cells blue at end
+          setAnimatingIndex(-1); // Animation done
+        }, 30); // 80ms for last yellow
+        clearInterval(interval);
+      }
+      idx++;
+    }, 30); // 80ms per cell
   };
 
   const handleStart = () => {
@@ -392,6 +419,8 @@ const Paroliamo = () => {
                 matrix={matrix}
                 rotationAngle={rotationAngle}
                 highlightPath={selectedPath}
+                animatingPath={animatingPath}
+                animatingIndex={animatingIndex}
               />
               <View style={{ flex: 1, minHeight: 100, maxHeight: 300, marginVertical: 10 }}>
                 <ScrollView
@@ -405,7 +434,7 @@ const Paroliamo = () => {
                     foundWords.map((item, idx) => (
                       <TouchableOpacity
                         key={idx}
-                        onPress={() => setSelectedPath(item.path)}
+                        onPress={() => handleWordSelect(item.path)}
                       >
                         <Text style={styles.wordItem}>{item.word}</Text>
                       </TouchableOpacity>
@@ -417,6 +446,8 @@ const Paroliamo = () => {
                 <Button title="Back to play" onPress={() => {
                   setShowBestModal(false);
                   setSelectedPath([]);
+                  setAnimatingPath([]);
+                  setAnimatingIndex(-1);
                 }} />
               </View>
             </View>

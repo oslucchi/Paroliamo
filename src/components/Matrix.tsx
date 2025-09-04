@@ -10,6 +10,8 @@ interface MatrixProps {
   rotationAngle?: number;
   rotationMode?: 'continuous' | 'by90';
   highlightPath?: number[][];
+  animatingPath?: number[][];
+  animatingIndex?: number;
 }
 
 const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => string[][] } = ({
@@ -20,6 +22,9 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
   rotationAngle = 0,
   rotationMode = 'continuous',
   highlightPath = [],
+  animatingPath = [],
+  animatingIndex = -1,
+
 }) => {
   if (!visible || !Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0])) {
     return null;
@@ -39,10 +44,20 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
       {renderedMatrix.map((row, rowIndex) => (
         <View style={styles.row} key={`row-${rowIndex}`}>
           {row.map((cell, colIndex) => {
-            // Highlight if this cell is in the highlightPath
-            const isHighlighted = highlightPath?.some(
-              ([r, c]) => r === rowIndex && c === colIndex
-            );
+            // Animation and highlight logic for each cell
+            const isAnimating = animatingPath.length > 0 && animatingIndex >= 0;
+            const isYellow = isAnimating && animatingPath[animatingIndex] &&
+              animatingPath[animatingIndex][0] === rowIndex &&
+              animatingPath[animatingIndex][1] === colIndex;
+
+            const isHighlighted = highlightPath?.some(([r, c]) => r === rowIndex && c === colIndex);
+
+            const cellColor = isYellow
+              ? '#ffd600' // yellow
+              : isHighlighted
+                ? '#1976d2' // blue
+                : '#c22200'; // red
+
             return (
               <View
                 key={`cell-${rowIndex}-${colIndex}`}
@@ -52,7 +67,7 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
                   style={{
                     fontSize: cellSize * 0.6,
                     fontWeight: 'bold',
-                    color: isHighlighted ? '#1976d2' : '#c22200', // blue if highlighted, red otherwise
+                    color: cellColor,
                     transform:
                       rotationMode === 'continuous'
                         ? [{ rotate: `${(cell.baseAngle + rotationAngle) % 360}deg` }]
