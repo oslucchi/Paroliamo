@@ -23,7 +23,30 @@ import { TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Alert } from 'react-native';
 import { chunkedWordSearch} from '../utils/chunkedWordsSearc';
 import { Trie } from '../utils/wordFinder';
-import { italianWords } from '../data/italianDictionary';
+
+// Temporary fallback dictionary for testing
+const fallbackWords = ['casa', 'gatto', 'cane', 'albero', 'fiore', 'sole', 'mare', 'cielo', 'terra', 'acqua'];
+
+let italianWords;
+try {
+  // Try different import methods
+  const dictionaryModule = require('../data/italianDictionary');
+  console.log('Dictionary module loaded:', Object.keys(dictionaryModule));
+  
+  if (dictionaryModule.italianWords) {
+    italianWords = dictionaryModule.italianWords;
+  } else if (dictionaryModule.default) {
+    italianWords = dictionaryModule.default;
+  } else {
+    throw new Error('No italianWords or default export found');
+  }
+  
+  console.log(`Successfully loaded dictionary with ${italianWords.length} words`);
+} catch (error) {
+  console.error('Could not load italianDictionary, using fallback:', error);
+  console.error('Error details:', error instanceof Error ? error.message : String(error));
+  italianWords = fallbackWords;
+}
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
@@ -84,15 +107,22 @@ const Paroliamo = () => {
       try {
         // Load dictionary from TypeScript module (works on all platforms)
         const trieObj = new Trie();
+        
+        if (!italianWords || italianWords.length === 0) {
+          throw new Error('Dictionary is empty or not loaded');
+        }
+        
         for (const word of italianWords) {
-          trieObj.insert(word);
+          if (word && typeof word === 'string') {
+            trieObj.insert(word.toLowerCase().trim());
+          }
         }
         setTrie(trieObj);
         setDictLoaded(true);
-        console.log(`Dictionary loaded: ${italianWords.length} words`);
+        console.log(`Dictionary loaded successfully: ${italianWords.length} words`);
       } catch (e: any) {
         console.error('Dictionary loading error:', e);
-        setDictionaryError('Failed to load dictionary. Please restart the app.');
+        setDictionaryError(`Failed to load dictionary: ${e.message}`);
       } finally {
         setLoadingDictionary(false);
       }
