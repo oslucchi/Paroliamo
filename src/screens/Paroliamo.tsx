@@ -23,7 +23,7 @@ import { TouchableOpacity } from 'react-native';
 import { ActivityIndicator, Alert } from 'react-native';
 import { chunkedWordSearch} from '../utils/chunkedWordsSearc';
 import { Trie } from '../utils/wordFinder';
-import RNFS from 'react-native-fs';
+import { italianWords } from '../data/italianDictionary';
 
 type ConfigField = 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees';
 
@@ -78,31 +78,27 @@ const Paroliamo = () => {
 
   Sound.setCategory('Playback');
   useEffect(() => {
-    (async () => {
+    const loadDictionary = () => {
       setLoadingDictionary(true);
       setDictionaryError(null);
       try {
-        // Adjust path as needed for your platform
-        let dictContent = '';
-        if (Platform.OS === 'android') {
-          dictContent = await RNFS.readFileAssets('dictionaries/italiano.txt', 'utf8');
-        } else if (Platform.OS === 'ios') {
-          dictContent = await RNFS.readFile(`${RNFS.MainBundlePath}/assets/dictionaries/italiano.txt`, 'utf8');
-        } else {
-          // fallback for web or other
-          dictContent = '';
-        }
-        const lines = dictContent.split(/\r?\n/).map(w => w.trim().toLowerCase()).filter(Boolean);
+        // Load dictionary from TypeScript module (works on all platforms)
         const trieObj = new Trie();
-        for (const w of lines) trieObj.insert(w);
+        for (const word of italianWords) {
+          trieObj.insert(word);
+        }
         setTrie(trieObj);
         setDictLoaded(true);
+        console.log(`Dictionary loaded: ${italianWords.length} words`);
       } catch (e: any) {
+        console.error('Dictionary loading error:', e);
         setDictionaryError('Failed to load dictionary. Please restart the app.');
       } finally {
         setLoadingDictionary(false);
       }
-    })();
+    };
+
+    loadDictionary();
   }, []);
 
   useEffect(() => {
