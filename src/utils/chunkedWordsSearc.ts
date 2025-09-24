@@ -13,7 +13,12 @@ export function chunkedWordSearch(
     throw new Error('Matrix.exportLetters is undefined');
   }
   const letterMatrix = Matrix.exportLetters(matrix);
-  const allResults = findWordsInMatrix(letterMatrix, dictionary, { minWordLen: 4, diagonals: true });
+  const { results: allResults, wordStrings } = 
+            findWordsInMatrix(
+              letterMatrix, 
+              dictionary, 
+              { minWordLen: 4, diagonals: true }
+            );
 
   // Chunked reporting for UI responsiveness
   let idx = 0;

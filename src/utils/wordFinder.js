@@ -45,27 +45,18 @@ class Trie {
   }
 }
 
-// // ---------- Dictionary loader ----------
-// /**
-//  * Load words (one per line) into a Trie.
-//  * @param {string} filePath path to a text file with one word per line
-//  * @param {object} [opts]
-//  * @param {number} [opts.minLength=1] ignore words shorter than this
-//  * @returns {{ trie: Trie, size: number }}
-//  */
-// function loadDictionary(filePath, { minLength = 1 } = {}) {
-//   const content = fs.readFileSync(filePath, "utf8");
-//   const trie = new Trie();
-//   let count = 0;
-
-//   for (const line of content.split(/\r?\n/)) {
-//     const w = line.trim().toLowerCase();
-//     if (!w || w.length < minLength) continue;
-//     trie.insert(w);
-//     count++;
-//   }
-//   return { trie, size: count };
-// }
+function insertSorted(results, entry) {
+  let left = 0, right = results.length;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (results[mid].word.length < entry.word.length) {
+      right = mid;
+    } else {
+      left = mid + 1;
+    }
+  }
+  results.splice(left, 0, entry);
+}
 
 /**
  * Find all words in a character matrix.
@@ -74,10 +65,10 @@ class Trie {
  * @param {object} [opts]
  * @param {number} [opts.minWordLen=4] minimal accepted word length
  * @param {boolean} [opts.diagonals=true] include diagonals as neighbors
- * @returns {{ word: string, path: Array<[number,number]> }[]}
+ * @returns {{ results: Array<{ word: string, path: Array<[number,number]> }>, wordStrings: string[] }}
  */
 function findWordsInMatrix(matrix, trie, { minWordLen = 4, diagonals = true } = {}) {
-  if (!Array.isArray(matrix) || matrix.length === 0) return [];
+  if (!Array.isArray(matrix) || matrix.length === 0) return { results: [], wordStrings: [] };
   const n = matrix.length;
 
   // Normalize to lowercase and verify sizes
@@ -105,27 +96,22 @@ function findWordsInMatrix(matrix, trie, { minWordLen = 4, diagonals = true } = 
 
   const visited = Array.from({ length: n }, () => Array(n).fill(false));
   const results = [];
-  const seenPaths = new Set(); // dedupe by word+path (path string of "r,c|r,c|...")
   const foundWords = new Set();
 
   function dfs(r, c, current, path) {
-    // Append current cell
     const nextWord = current + board[r][c];
 
-    // Prune if no dictionary word starts with this prefix
     if (!trie.hasPrefix(nextWord)) return;
 
-    // If it's a valid word of sufficient length, record it
     if (
       nextWord.length >= minWordLen &&
       trie.hasWord(nextWord) &&
       !foundWords.has(nextWord)
     ) {
       foundWords.add(nextWord);
-      results.push({ word: nextWord, path: [...path] });
+      insertSorted(results, { word: nextWord, path: [...path] });
     }
 
-    // Continue exploring neighbors
     for (const [dr, dc] of dirs) {
       const nr = r + dr, nc = c + dc;
       if (inBounds(nr, nc) && !visited[nr][nc]) {
@@ -138,7 +124,6 @@ function findWordsInMatrix(matrix, trie, { minWordLen = 4, diagonals = true } = 
     }
   }
 
-  // Start DFS from every cell
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
       visited[r][c] = true;
@@ -146,9 +131,9 @@ function findWordsInMatrix(matrix, trie, { minWordLen = 4, diagonals = true } = 
       visited[r][c] = false;
     }
   }
-  results.sort((a, b) => b.word.length - a.word.length);
-  console.log(results.map(r => r.word));
-  return results;
+
+  const wordStrings = results.map(r => r.word);
+  return { results, wordStrings };
 }
 
 module.exports = {
