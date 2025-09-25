@@ -49,12 +49,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onChangeText={(text) => onChange('cols', parseInt(text) || 1)}
       />
 
-      <Text style={styles.label}>Game Duration (min):</Text>
+      <Text style={styles.label}>Game Duration (sec):</Text>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
-        value={duration.toString()}
-        onChangeText={(text) => onChange('duration', parseInt(text) || 1)}
+        value={(duration / 1000).toString()}
+        onChangeText={(text) => onChange('duration', (parseInt(text) || 1) * 1000)}
       />
 
       <Text style={styles.label}>Rotation Interval (sec, 0 = no rotation):</Text>
@@ -69,7 +69,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <View style={styles.radioGroup}>
         <TouchableOpacity
           style={styles.radioOption}
-          onPress={() => onChangeRotationMode('continuous')}
+          onPress={() => {
+            try {
+              console.log('Continuous button pressed, rotateDegrees:', rotateDegrees);
+              onChangeRotationMode('continuous');
+              if (rotateDegrees === 0) {
+                console.log('Setting rotateDegrees to 6');
+                onChange('rotateDegrees', 6);
+              }
+            } catch (err) {
+              console.error('Error in continuous button press:', err);
+            }
+          }}
         >
           <View style={styles.radioCircle}>
             {rotationMode === 'continuous' && <View style={styles.radioDot} />}

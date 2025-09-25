@@ -11,9 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {Appbar} from 'react-native-paper';
+
 import Matrix from '../components/Matrix';
 import SettingsPanel from '../components/SettingsPanel';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {generateMatrix} from '../utils/matrixGenerator';
 import Sound from 'react-native-sound';
 import { Dimensions } from 'react-native';
@@ -35,10 +36,18 @@ try {
   
   if (dictionaryModule.italianWords) {
     italianWords = dictionaryModule.italianWords;
+    console.log('Using dictionaryModule.italianWords');
   } else if (dictionaryModule.default) {
     italianWords = dictionaryModule.default;
+    console.log('Using dictionaryModule.default');
   } else {
     throw new Error('No italianWords or default export found');
+  }
+  
+  // Validate the dictionary is an array
+  if (!Array.isArray(italianWords)) {
+    console.error('Dictionary is not an array:', typeof italianWords);
+    throw new Error('Dictionary is not an array');
   }
   
   console.log(`Successfully loaded dictionary with ${italianWords.length} words`);
@@ -71,7 +80,11 @@ const Paroliamo = () => {
   const [cols, setCols] = useState(5);
   const [duration, setDuration] = useState(3 * 60 * 1000);
 
-  const [matrix, setMatrix] = useState<Cell[][]>([]);
+  const [matrix, setMatrix] = useState<Cell[][]>(() => 
+    Array.from({length: 5}, () => 
+      Array.from({length: 5}, () => ({ letter: '', baseAngle: 0 }))
+    )
+  );
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);
@@ -79,6 +92,7 @@ const Paroliamo = () => {
   const [isRotating, setIsRotating] = useState(true);
   const [rotationAngle, setRotationAngle] = useState(0);
   const [rotationMode, setRotationMode] = useState<'continuous' | 'by90'>('continuous');
+
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [preCountdown, setPreCountdown] = useState<number | null>(null);
@@ -98,6 +112,7 @@ const Paroliamo = () => {
   const [selectedPath, setSelectedPath] = useState<number[][]>([]);
   const [animatingPath, setAnimatingPath] = useState<number[][]>([]);
   const [animatingIndex, setAnimatingIndex] = useState<number>(-1);
+  const [isSearchingFinalWords, setIsSearchingFinalWords] = useState(false);
 
   Sound.setCategory('Playback');
   useEffect(() => {
@@ -174,7 +189,10 @@ const Paroliamo = () => {
   }, []);
 
   useEffect(() => {
-    const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
+    const emptyMatrix = Array.from({length: rows}, () => 
+      Array.from({length: cols}, () => ({ letter: '', baseAngle: 0 }))
+    );
+    console.log('Setting empty matrix:', emptyMatrix.length, 'x', emptyMatrix[0]?.length);
     setMatrix(emptyMatrix);
   }, [rows, cols]);
 
@@ -184,9 +202,40 @@ const Paroliamo = () => {
         setTimeLeft(prev => {
           if (prev <= 1000) {
             clearInterval(intervalRef.current!);
+            
+            // Stop all rotation immediately
+            if (rotationIntervalRef.current) {
+              clearInterval(rotationIntervalRef.current);
+              rotationIntervalRef.current = null;
+            }
+            
             setIsRunning(false);
             playBuzzer();
-            return 0;
+            
+              // Snap rotation to nearest 90 degrees when time ends (only for continuous mode)
+              snapToNearestNinety();
+              
+              // Trigger the final word search and enable Show Best
+              // Use setTimeout to ensure state updates are processed
+              setTimeout(() => {
+                // Interrupt the background search
+                searchAbortController.current.aborted = true;
+                
+                // Re-run word search on the current (final) matrix state
+                setIsSearchingFinalWords(true);
+                setTimeout(() => {
+                  searchWordsInMatrix(
+                    matrix,
+                    words => {
+                      console.log('Final word search completed with', words.length, 'words');
+                      setFoundWords(words);
+                      setIsSearchingFinalWords(false);
+                      setShowBestEnabled(true); // Enable Show Best after word search completes
+                    },
+                    { aborted: false } // Use a fresh abort controller
+                  );
+                }, 100);
+              }, 50);            return 0;
           }
           return prev - 1000;
         });
@@ -198,25 +247,37 @@ const Paroliamo = () => {
   useEffect(() => {
     if (isRunning && !isPaused && isRotating && rotationInterval > 0) {
       rotationIntervalRef.current = setInterval(() => {
-        if (rotationMode === 'by90') {
-          setMatrix(prev => rotateMatrixBy90(prev));
-        }
+        // Only update rotationAngle - don't physically rotate matrix data
         setRotationAngle(prev => (prev + (rotationMode === 'by90' ? 90 : rotateDegrees)) % 360);
       }, rotationInterval * 1000);
     }
 
-    return () => clearInterval(rotationIntervalRef.current!);
+    return () => {
+      if (rotationIntervalRef.current) {
+        clearInterval(rotationIntervalRef.current);
+      }
+    };
   }, [isRunning, isPaused, isRotating, rotationInterval, rotateDegrees, rotationMode]);
 
   const handleRotationModeChange = async (mode: 'continuous' | 'by90') => {
-    setRotationMode(mode);
-    if (mode === 'by90') {
-      setRotateDegrees(0);
-    }
     try {
+      console.log('Changing rotation mode to:', mode);
+      console.log('Current rotateDegrees:', rotateDegrees);
+      console.log('Current matrix:', matrix?.length, 'x', matrix?.[0]?.length);
+      
+      setRotationMode(mode);
+      if (mode === 'by90') {
+        setRotateDegrees(0);
+      } else if (mode === 'continuous' && rotateDegrees === 0) {
+        // Set a default rotation degree for continuous mode
+        setRotateDegrees(6);
+      }
+      
       await AsyncStorage.setItem('rotationMode', mode);
+      console.log('Rotation mode changed successfully');
     } catch (err) {
-      console.warn('Failed to save rotationMode:', err);
+      console.error('Error in handleRotationModeChange:', err);
+      console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
     }
   };
 
@@ -254,9 +315,56 @@ const Paroliamo = () => {
     );
   };
 
+  // Function to transform coordinates based on rotation angle
+  const transformCoordinatesByRotation = (row: number, col: number, angle: number, matrixRows: number, matrixCols: number): [number, number] => {
+    // Normalize angle to 0, 90, 180, 270
+    const normalizedAngle = angle % 360;
+    
+    switch (normalizedAngle) {
+      case 0:
+        return [row, col];
+      case 90:
+        // 90° clockwise: (row, col) -> (col, matrixRows - 1 - row)
+        return [col, matrixRows - 1 - row];
+      case 180:
+        // 180°: (row, col) -> (matrixRows - 1 - row, matrixCols - 1 - col)
+        return [matrixRows - 1 - row, matrixCols - 1 - col];
+      case 270:
+        // 270° clockwise: (row, col) -> (matrixCols - 1 - col, row)
+        return [matrixCols - 1 - col, row];
+      default:
+        return [row, col];
+    }
+  };
+
+  // Function to transform coordinate paths for highlighting
+  const transformCoordinatesForRotation = (path: number[][], matrixRows: number, matrixCols: number): number[][] => {
+    if (rotationMode === 'continuous') {
+      console.log('Continuous mode - no coordinate transformation needed (matrix data unchanged)');
+      return path; // No transformation for continuous mode
+    }
+
+    // For by90 mode: transform coordinates using current rotation angle
+    console.log('By90 mode - transforming coordinates by rotation angle:', rotationAngle);
+    
+    return path.map(([row, col]) => {
+      const [newRow, newCol] = transformCoordinatesByRotation(row, col, rotationAngle, matrixRows, matrixCols);
+      return [newRow, newCol];
+    });
+  };
+
   const handleWordSelect = (path: number[][]) => {
     setSelectedPath([]);
-    setAnimatingPath(path);
+    
+    // Transform the path coordinates based on current rotation
+    const transformedPath = transformCoordinatesForRotation(path, rows, cols);
+    
+    console.log('Original path:', path);
+    console.log('Transformed path:', transformedPath);
+    console.log('Rotation angle:', rotationAngle);
+    console.log('Rotation mode:', rotationMode);
+    
+    setAnimatingPath(transformedPath);
     setAnimatingIndex(0);
 
     let idx = 0;
@@ -264,19 +372,19 @@ const Paroliamo = () => {
     const interval = setInterval(() => {
       setAnimatingIndex(idx);
       if (idx > 0) {
-        bluePath = path.slice(0, idx);
+        bluePath = transformedPath.slice(0, idx);
         setSelectedPath(bluePath);
       }
-      if (idx === path.length - 1) {
-        // Last cell: highlight yellow for 80ms, then turn all blue
+      if (idx === transformedPath.length - 1) {
+        // Last cell: highlight yellow for longer, then turn all blue
         setTimeout(() => {
-          setSelectedPath(path); // All cells blue at end
+          setSelectedPath(transformedPath); // All cells blue at end
           setAnimatingIndex(-1); // Animation done
-        }, 30); // 80ms for last yellow
+        }, 120); // 240ms for last yellow
         clearInterval(interval);
       }
       idx++;
-    }, 30); // 80ms per cell
+    }, 120); // 240ms per cell (doubled from 120ms)
   };
 
   const handleStart = () => {
@@ -313,28 +421,46 @@ const Paroliamo = () => {
     }, 1000);
   };
 
-  useEffect(() => {
-    if (timeLeft === 0) {
-      setShowBestEnabled(true);
-      // Interrupt the background search
-      searchAbortController.current.aborted = true;
+  // Function to snap rotation to nearest 90 degrees (only for continuous mode)
+  const snapToNearestNinety = () => {
+    // Only snap for continuous rotation mode
+    if (rotationMode !== 'continuous') {
+      // For by90 mode, don't change rotationAngle - it should stay as-is for correct rendering
+      console.log('By90 mode - keeping current rotationAngle for rendering:', rotationAngle);
+      return;
     }
-  }, [timeLeft]);
+    
+    // For continuous mode: snap to the NEXT 90° increment (not nearest)
+    const currentAngle = rotationAngle % 360;
+    const nextNinety = Math.ceil(currentAngle / 90) * 90;
+    const finalAngle = nextNinety % 360;
+    
+    console.log('Continuous mode - snapping to next 90°:', { currentAngle, nextNinety, finalAngle });
+    setRotationAngle(finalAngle);
+  };
+
+
 
   const handleStop = () => {
     setIsPaused(true);
     clearInterval(intervalRef.current!);
+    // Snap rotation to nearest 90 degrees when manually stopped
+    snapToNearestNinety();
   };
 
   const handleResume = () => setIsPaused(false);
 
   const handleShuffle = () => {
-    const emptyMatrix = Array.from({length: rows}, () => Array(cols).fill(''));
+    const emptyMatrix = Array.from({length: rows}, () => 
+      Array.from({length: cols}, () => ({ letter: '', baseAngle: 0 }))
+    );
     setMatrix(emptyMatrix);
     setIsRunning(false);
     setIsPaused(false);
     setTimeLeft(duration);
     setShowBestEnabled(false);
+    // Reset rotation to 0 degrees when shuffling
+    setRotationAngle(0);
   };
 
   const formatTime = (ms: number) => {
@@ -362,8 +488,13 @@ const Paroliamo = () => {
           </View>
         </>
       )}
-      {!isRunning && timeLeft === 0 && (
+      {!isRunning && timeLeft === 0 && !showBestEnabled && (
         <Button title="Shuffle" onPress={handleShuffle} />
+      )}
+      {!isRunning && timeLeft === 0 && showBestEnabled && (
+        <View style={{ marginTop: 10 }}>
+          <Button title="Shuffle" onPress={handleShuffle} />
+        </View>
       )}
       {isRunning && 
         <View style={{ marginTop: 20 }}>
@@ -407,22 +538,27 @@ const Paroliamo = () => {
             orientation === 'landscape' && styles.landscapeLayout,
           ]}
         >
-          <Appbar.Header>
-            <Appbar.Content title="Paroliamo" />
-            <Appbar.Action icon="menu" onPress={() => setShowSettings(true)} disabled={isRunning} />
-          </Appbar.Header>
+          <View style={styles.headerContainer}>
+            {preCountdown !== null ? (
+              <Text style={styles.countdownHeader}>{preCountdown}</Text>
+            ) : (
+              <Text style={[
+                styles.timerHeader,
+                timeLeft <= 10000 && styles.timerHeaderWarning
+              ]}>
+                Time Left: {formatTime(timeLeft)}
+              </Text>
+            )}
+            <TouchableOpacity 
+              style={styles.settingsButton}
+              onPress={() => setShowSettings(true)} 
+              disabled={isRunning}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
 
-          {preCountdown !== null && (
-            <Text style={styles.preCountdown}>{preCountdown}</Text>
-          )}
 
-          {/* Hide timer when showing best words */}
-          {!showBestModal && (
-            <Text
-              style={[styles.timer, timeLeft <= 10000 && styles.timerWarning]}>
-              Time Left: {formatTime(timeLeft)}
-            </Text>
-          )}
 
           {/* --- Live word search status --- */}
           {isRunning && (
@@ -444,9 +580,11 @@ const Paroliamo = () => {
                 visible={true}
                 matrix={matrix}
                 rotationAngle={rotationAngle}
+                rotationMode={rotationMode}
                 highlightPath={selectedPath}
                 animatingPath={animatingPath}
                 animatingIndex={animatingIndex}
+                isRunning={false} // Game is not running in Show Best mode
               />
               <View style={{ flex: 1, minHeight: 100, maxHeight: 300, marginVertical: 10 }}>
                 <ScrollView
@@ -454,7 +592,12 @@ const Paroliamo = () => {
                   contentContainerStyle={{ flexGrow: 1 }}
                   showsVerticalScrollIndicator={true}
                 >
-                  {foundWords.length === 0 ? (
+                  {isSearchingFinalWords ? (
+                    <View style={{ alignItems: 'center', padding: 20 }}>
+                      <ActivityIndicator size="large" color="#1976d2" />
+                      <Text style={{ marginTop: 10 }}>Finding words...</Text>
+                    </View>
+                  ) : foundWords.length === 0 ? (
                     <Text>No words found.</Text>
                   ) : (
                     foundWords.map((item, idx) => (
@@ -479,20 +622,27 @@ const Paroliamo = () => {
             </View>
           ) : (
               <>
-              <Matrix
-                rows={rows}
-                cols={cols}
-                visible={true}
-                matrix={matrix}
-                rotationAngle={rotationAngle}
-              />
+              <View style={styles.matrixContainer}>
+                <Matrix
+                  rows={rows}
+                  cols={cols}
+                  visible={true}
+                  matrix={matrix}
+                  rotationAngle={rotationAngle}
+                  rotationMode={rotationMode}
+                  isRunning={isRunning}
+                />
+              </View>
               {orientation === 'portrait' ? (
                 <View style={styles.buttonContainer}>
                   {renderButtons()}
                   {showBestEnabled && (
                     <TouchableOpacity
                       style={styles.showBestButton}
-                      onPress={() => setShowBestModal(true)}
+                      onPress={() => {
+                        console.log('Show Best button pressed');
+                        setShowBestModal(true);
+                      }}
                     >
                       <Text style={styles.showBestButtonText}>Show Best</Text>
                     </TouchableOpacity>
@@ -520,24 +670,31 @@ const Paroliamo = () => {
       <Modal visible={showSettings} animationType="slide">
         <SafeAreaView style={styles.settingsModal}>
           <Text style={styles.settingsTitle}>Settings</Text>
-          <SettingsPanel
-            rows={rows}
-            cols={cols}
-            duration={duration}
-            rotationInterval={rotationInterval}
-            rotateDegrees={rotateDegrees}
-            rotationMode={rotationMode}
-            onChange={(field, value) => {
-              switch (field) {
-                case 'rows': setRows(value); break;
-                case 'cols': setCols(value); break;
-                case 'duration': setDuration(value); break;
-                case 'rotationInterval': setRotationInterval(value); break;
-                case 'rotateDegrees': setRotateDegrees(value); break;
-              }
-            }}
-            onChangeRotationMode={handleRotationModeChange}
-          />
+          <ErrorBoundary>
+            <SettingsPanel
+              rows={rows}
+              cols={cols}
+              duration={duration}
+              rotationInterval={rotationInterval}
+              rotateDegrees={rotateDegrees}
+              rotationMode={rotationMode}
+              onChange={(field, value) => {
+                try {
+                  console.log('Settings onChange:', field, value);
+                  switch (field) {
+                    case 'rows': setRows(value); break;
+                    case 'cols': setCols(value); break;
+                    case 'duration': setDuration(value); break;
+                    case 'rotationInterval': setRotationInterval(value); break;
+                    case 'rotateDegrees': setRotateDegrees(value); break;
+                  }
+                } catch (err) {
+                  console.error('Error in settings onChange:', err);
+                }
+              }}
+              onChangeRotationMode={handleRotationModeChange}
+            />
+          </ErrorBoundary>
           <View style={{ marginTop: 20 }}>
             <Button
               title="Close"
@@ -562,8 +719,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   timer: {
     fontSize: 48,
@@ -648,6 +804,41 @@ const styles = StyleSheet.create({
     minHeight: 100,
     maxHeight: 200,
     marginHorizontal: 20,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  timerHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  settingsButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#e0e0e0',
+  },
+  settingsIcon: {
+    fontSize: 20,
+  },
+  matrixContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  countdownHeader: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#c22200',
+  },
+  timerHeaderWarning: {
+    color: '#ff0000',
   },
 });
 

@@ -1,3 +1,16 @@
+#!/bin/bash
+
+# Script to minimize iOS launch screen
+# This will replace the launch screen with a simple, fast-loading one
+
+IOS_DIR="/Users/osvaldo/Dev/Personali/Paroliamo/ios/Paroliamo"
+LAUNCH_SCREEN="$IOS_DIR/LaunchScreen.storyboard"
+
+echo "Modifying iOS launch screen..."
+
+if [ -f "$LAUNCH_SCREEN" ]; then
+    # Create a minimal launch screen
+    cat > "$LAUNCH_SCREEN" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
@@ -28,3 +41,13 @@
         </systemColor>
     </resources>
 </document>
+EOF
+    echo "✅ Launch screen updated to minimal version"
+else
+    echo "❌ Launch screen file not found at $LAUNCH_SCREEN"
+fi
+
+echo "Next steps:"
+echo "1. Clean build folder in Xcode (Product → Clean Build Folder)"
+echo "2. Rebuild the app"
+echo "3. The splash screen should now be minimal and fast"
