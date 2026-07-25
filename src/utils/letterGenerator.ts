@@ -1,6 +1,6 @@
 import { Cell, createCell } from "../types/cell";
 
-export function generateLetter(probTable: { [key: string]: number }): Cell {
+export function generateLetter(probTable: { [key: string]: number }, angleRandomly = true): Cell {
   const total = Object.values(probTable).reduce((a, b) => a + b, 0);
   const rand = Math.random() * total;
 
@@ -14,7 +14,7 @@ export function generateLetter(probTable: { [key: string]: number }): Cell {
     if (rand <= cumulative) 
     {
       cell.letter = letter;
-      cell.baseAngle = Math.floor(Math.random() * 3) * 90; 
+      cell.baseAngle = angleRandomly ? Math.floor(Math.random() * 4) * 90 : 0;
       return cell;
     }
   }

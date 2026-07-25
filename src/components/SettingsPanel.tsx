@@ -14,11 +14,13 @@ interface SettingsPanelProps {
   rotationInterval: number; // in sec
   rotateDegrees: number;
   rotationMode: 'continuous' | 'by90';
+  angleRandomly: boolean;
   onChange: (
     field: 'rows' | 'cols' | 'duration' | 'rotationInterval' | 'rotateDegrees',
     value: number
   ) => void;
   onChangeRotationMode: (mode: 'continuous' | 'by90') => void;
+  onToggleAngleRandomly: (value: boolean) => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -28,8 +30,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   rotationInterval,
   rotateDegrees,
   rotationMode,
+  angleRandomly,
   onChange,
   onChangeRotationMode,
+  onToggleAngleRandomly,
 }) => {
   return (
     <View style={styles.container}>
@@ -99,6 +103,28 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {rotationMode === 'by90' && <View style={styles.radioDot} />}
           </View>
           <Text style={styles.radioLabel}>Rotate by 90°</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.label}>Set letter angle randomly:</Text>
+      <View style={styles.radioGroup}>
+        <TouchableOpacity
+          style={styles.radioOption}
+          onPress={() => onToggleAngleRandomly(true)}
+        >
+          <View style={styles.radioCircle}>
+            {angleRandomly && <View style={styles.radioDot} />}
+          </View>
+          <Text style={styles.radioLabel}>Yes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.radioOption}
+          onPress={() => onToggleAngleRandomly(false)}
+        >
+          <View style={styles.radioCircle}>
+            {!angleRandomly && <View style={styles.radioDot} />}
+          </View>
+          <Text style={styles.radioLabel}>No</Text>
         </TouchableOpacity>
       </View>
 

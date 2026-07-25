@@ -99,6 +99,7 @@ const Paroliamo = () => {
   const rotationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [rotationInterval, setRotationInterval] = useState(1); // sec, 0 = no rotation
   const [rotateDegrees, setRotateDegrees] = useState(6); // deg, 0 = no rotation
+  const [angleRandomly, setAngleRandomly] = useState(true);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
   const [foundWords, setFoundWords] = useState<{ word: string, path: number[][] }[]>([]);
@@ -155,6 +156,7 @@ const Paroliamo = () => {
         const savedRotation = await AsyncStorage.getItem('rotationInterval');
         const savedRotateDegrees = await AsyncStorage.getItem('rotateDegrees');
         const savedRotationMode = await AsyncStorage.getItem('rotationMode');
+        const savedAngleRandomly = await AsyncStorage.getItem('angleRandomly');
 
         if (savedRows) setRows(Number(savedRows));
         if (savedCols) setCols(Number(savedCols));
@@ -167,6 +169,11 @@ const Paroliamo = () => {
         }
         if (savedRotationMode === 'continuous' || savedRotationMode === 'by90') {
           setRotationMode(savedRotationMode);
+        }
+        if (savedAngleRandomly === 'false') {
+          setAngleRandomly(false);
+        } else {
+          setAngleRandomly(true);
         }
       } catch (err) {
         console.warn('Failed to load saved settings:', err);
@@ -228,7 +235,7 @@ const Paroliamo = () => {
                     matrix,
                     words => {
                       console.log('Final word search completed with', words.length, 'words');
-                      setFoundWords(words);
+                      setFoundWords(sortWordsByLengthDesc(words));
                       setIsSearchingFinalWords(false);
                       setShowBestEnabled(true); // Enable Show Best after word search completes
                     },
@@ -296,6 +303,14 @@ const Paroliamo = () => {
     );
   };
 
+  const sortWordsByLengthDesc = (words: { word: string, path: number[][] }[]) => {
+    return [...words].sort((a, b) => {
+      const lengthDiff = b.word.length - a.word.length;
+      if (lengthDiff !== 0) return lengthDiff;
+      return a.word.localeCompare(b.word);
+    });
+  };
+
   const searchWordsInMatrix = (
     matrix: Cell[][],
     onResult: (words: { word: string, path: number[][] }[]) => void,
@@ -306,10 +321,10 @@ const Paroliamo = () => {
       matrix,
       trie,
       (progressWords) => {
-        setFoundWords(progressWords);
+        setFoundWords(sortWordsByLengthDesc(progressWords));
       },
       (finalWords) => {
-        if (!abortSignal.aborted) onResult(finalWords);
+        if (!abortSignal.aborted) onResult(sortWordsByLengthDesc(finalWords));
       },
       abortSignal
     );
@@ -402,7 +417,7 @@ const Paroliamo = () => {
       if (count === 0) {
         clearInterval(countdownInterval);
         setPreCountdown(null);
-        const newMatrix = generateMatrix(rows, cols);
+        const newMatrix = generateMatrix(rows, cols, angleRandomly);
         setMatrix(newMatrix);
         setIsRunning(true);
         setIsPaused(false);
@@ -693,6 +708,15 @@ const Paroliamo = () => {
                 }
               }}
               onChangeRotationMode={handleRotationModeChange}
+              angleRandomly={angleRandomly}
+              onToggleAngleRandomly={(value) => {
+                try {
+                  setAngleRandomly(value);
+                  AsyncStorage.setItem('angleRandomly', value ? 'true' : 'false');
+                } catch (err) {
+                  console.error('Error saving angleRandomly setting:', err);
+                }
+              }}
             />
           </ErrorBoundary>
           <View style={{ marginTop: 20 }}>

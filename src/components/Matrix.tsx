@@ -127,12 +127,10 @@ const Matrix: React.FC<MatrixProps> & { exportLetters?: (matrix: Cell[][]) => st
             };
 
             const getLetterRotation = () => {
-              if (rotationMode === 'continuous' && typeof safeCell.baseAngle === 'number' && typeof rotationAngle === 'number') {
-                // Continuous mode: individual letter rotation based on baseAngle + rotationAngle
+              if (typeof safeCell.baseAngle === 'number' && typeof rotationAngle === 'number') {
+                // In both modes, apply the letter's base angle plus the current matrix rotation.
+                // This ensures individual letters keep their own random orientation in 90° increments.
                 return [{ rotate: `${(safeCell.baseAngle + rotationAngle) % 360}deg` }];
-              } else if (rotationMode === 'by90' && typeof rotationAngle === 'number') {
-                // By90 mode: letters also rotate by the same 90-degree increments as the matrix
-                return [{ rotate: `${rotationAngle}deg` }];
               }
               return [];
             };
